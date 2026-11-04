@@ -1,0 +1,5 @@
+config,test_episodes,failures,primary_collision,primary_u_trap,primary_dead_end,primary_narrow_corridor,primary_loop,primary_other_timeout,tag_timeout_pct_of_failures,tag_loop_pct_of_failures,tag_dead_end_pct_of_failures,tag_u_trap_pct_of_failures,tag_narrow_corridor_pct_of_failures
+dqn_s10_k5_d0.2,2500,1053,0,95,96,122,740,0,100.0,100.0,11.4,9.0,15.0
+drqn_s10_k3_d0.2,2500,361,9,128,110,22,92,0,97.5,98.3,57.9,36.0,25.8
+drqn_s10_k5_d0.2,2500,208,0,105,32,8,63,0,100.0,100.0,39.9,50.5,17.3
+drqn_s10_k7_d0.2,2500,223,0,100,32,15,76,0,100.0,100.0,38.1,44.8,19.3

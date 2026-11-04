@@ -1,0 +1,46 @@
+{
+  "run": "/workspace/thesis/results/runs/random_s10_k5_d0.2//seed3",
+  "agent": "random",
+  "seed": 3,
+  "size": 10,
+  "obs": 5,
+  "train_density": 0.2,
+  "eval_density": 0.2,
+  "n_maps": 500,
+  "difficulty_bins_shortest_path": [
+    9,
+    11
+  ],
+  "n": 500,
+  "success_rate": 0.0,
+  "collision_rate": 0.994,
+  "timeout_rate": 0.006,
+  "avg_steps_success": null,
+  "avg_path_ratio_success": null,
+  "by_difficulty": {
+    "easy": {
+      "n": 226,
+      "success_rate": 0.0,
+      "collision_rate": 1.0,
+      "timeout_rate": 0.0,
+      "avg_steps_success": null,
+      "avg_path_ratio_success": null
+    },
+    "medium": {
+      "n": 142,
+      "success_rate": 0.0,
+      "collision_rate": 0.9859154929577465,
+      "timeout_rate": 0.014084507042253521,
+      "avg_steps_success": null,
+      "avg_path_ratio_success": null
+    },
+    "hard": {
+      "n": 132,
+      "success_rate": 0.0,
+      "collision_rate": 0.9924242424242424,
+      "timeout_rate": 0.007575757575757576,
+      "avg_steps_success": null,
+      "avg_path_ratio_success": null
+    }
+  }
+}

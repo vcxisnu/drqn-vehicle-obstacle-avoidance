@@ -1,0 +1,51 @@
+import json, os
+from envs.grid_env import GridObstacleEnv
+from agents.tabular import TabularQAgent
+from agents.deep import DQNAgent, DRQNAgent
+
+AGENTS = ["tabular", "dqn", "drqn", "random"]
+
+
+class RandomAgent:
+    """Uniform random policy (reference baseline; no training)."""
+    recurrent = False
+    def __init__(self, *a, **k): pass
+    def reset_state(self): pass
+    def act(self, obs, eps, rng): return int(rng.integers(4))
+    def observe(self, *a, **k): pass
+    def end_episode(self): pass
+    def maybe_update(self, step): return None
+    def save(self, path): open(path, "w").close()
+    def load(self, path): pass
+
+
+def make_env(cfg):
+    return GridObstacleEnv(size=cfg["size"], obs_size=cfg["obs"], density=cfg["density"],
+                           max_steps=cfg.get("max_steps"), min_start_goal_dist=cfg.get("min_dist"))
+
+
+def make_agent(cfg, obs_dim):
+    a, k = cfg["agent"], cfg["obs"]
+    hp = dict(lr=cfg.get("lr", 5e-4), gamma=cfg.get("gamma", 0.99), batch_size=cfg.get("batch_size", 32),
+              target_update=cfg.get("target_update", 1000), learn_start=cfg.get("learn_start", 1000),
+              train_every=cfg.get("train_every", 4), hidden=cfg.get("hidden", 128))
+    if a == "random":
+        return RandomAgent()
+    if a == "tabular":
+        return TabularQAgent(obs_dim, lr=cfg.get("tab_lr", 0.1), gamma=hp["gamma"])
+    if a == "dqn":
+        return DQNAgent(obs_dim, k, **hp)
+    core = "lstm"
+    return DRQNAgent(obs_dim, k, core=core, seq_len=cfg.get("seq_len", 16), burn_in=cfg.get("burn_in", 8), **hp)
+
+
+def model_file(run_dir, agent):
+    return os.path.join(run_dir, "model.pkl" if agent == "tabular" else "model.pt")
+
+
+def load_run(run_dir):
+    cfg = json.load(open(os.path.join(run_dir, "config.json")))
+    env = make_env(cfg)
+    ag = make_agent(cfg, env.obs_dim)
+    ag.load(model_file(run_dir, cfg["agent"]))
+    return cfg, ag

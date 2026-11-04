@@ -1,0 +1,22 @@
+[dqn] k=5 trainable params: 155,901
+[dqn] ep 500/10000 eps=0.92 succ@100=0.00 steps=4744 2s
+[dqn] ep 1000/10000 eps=0.84 succ@100=0.02 steps=10043 5s
+[dqn] ep 1500/10000 eps=0.75 succ@100=0.01 steps=16103 9s
+[dqn] ep 2000/10000 eps=0.67 succ@100=0.07 steps=22409 13s
+[dqn] ep 2500/10000 eps=0.59 succ@100=0.08 steps=29468 18s
+[dqn] ep 3000/10000 eps=0.51 succ@100=0.13 steps=36362 22s
+[dqn] ep 3500/10000 eps=0.42 succ@100=0.17 steps=43901 27s
+[dqn] ep 4000/10000 eps=0.34 succ@100=0.09 steps=54626 34s
+[dqn] ep 4500/10000 eps=0.26 succ@100=0.09 steps=66359 41s
+[dqn] ep 5000/10000 eps=0.18 succ@100=0.23 steps=79564 50s
+[dqn] ep 5500/10000 eps=0.09 succ@100=0.42 steps=93322 59s
+[dqn] ep 6000/10000 eps=0.01 succ@100=0.53 steps=113055 73s
+[dqn] ep 6500/10000 eps=0.01 succ@100=0.71 steps=131674 87s
+[dqn] ep 7000/10000 eps=0.01 succ@100=0.58 steps=150678 101s
+[dqn] ep 7500/10000 eps=0.01 succ@100=0.75 steps=168187 115s
+[dqn] ep 8000/10000 eps=0.01 succ@100=0.78 steps=183070 126s
+[dqn] ep 8500/10000 eps=0.01 succ@100=0.80 steps=196460 137s
+[dqn] ep 9000/10000 eps=0.01 succ@100=0.85 steps=209613 147s
+[dqn] ep 9500/10000 eps=0.01 succ@100=0.85 steps=220913 156s
+[dqn] ep 10000/10000 eps=0.01 succ@100=0.89 steps=232769 167s
+saved to /workspace/thesis/results/runs/dqn_s10_k5_d0.2/seed3

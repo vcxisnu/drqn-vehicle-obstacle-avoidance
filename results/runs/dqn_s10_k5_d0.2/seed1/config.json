@@ -1,0 +1,22 @@
+{
+  "agent": "dqn",
+  "size": 10,
+  "obs": 5,
+  "density": 0.2,
+  "episodes": 10000,
+  "max_steps": null,
+  "min_dist": null,
+  "eps_start": 1.0,
+  "eps_end": 0.01,
+  "eps_decay_frac": 0.6,
+  "lr": 0.0005,
+  "batch_size": 32,
+  "seq_len": 16,
+  "burn_in": 8,
+  "train_every": 4,
+  "target_update": 1000,
+  "learn_start": 1000,
+  "hidden": 128,
+  "out": "/workspace/thesis/results/runs/dqn_s10_k5_d0.2/seed1",
+  "seed": 1
+}
