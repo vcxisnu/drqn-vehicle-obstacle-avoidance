@@ -1,0 +1,50 @@
+{
+  "run": "/workspace/drqn-repo/results/runs/random_s10_k5_d0.2/seed4",
+  "agent": "random",
+  "seed": 4,
+  "size": 10,
+  "obs": 5,
+  "train_density": 0.2,
+  "eval_density": 0.2,
+  "eval_eps": 0.01,
+  "n_maps": 500,
+  "eval_size": 15,
+  "eval_max_steps": 120,
+  "difficulty_bins_shortest_path": [
+    9,
+    11
+  ],
+  "n": 500,
+  "success_rate": 0.0,
+  "collision_rate": 1.0,
+  "timeout_rate": 0.0,
+  "avg_steps_success": null,
+  "avg_path_ratio_success": null,
+  "by_difficulty": {
+    "easy": {
+      "n": 109,
+      "success_rate": 0.0,
+      "collision_rate": 1.0,
+      "timeout_rate": 0.0,
+      "avg_steps_success": null,
+      "avg_path_ratio_success": null
+    },
+    "medium": {
+      "n": 84,
+      "success_rate": 0.0,
+      "collision_rate": 1.0,
+      "timeout_rate": 0.0,
+      "avg_steps_success": null,
+      "avg_path_ratio_success": null
+    },
+    "hard": {
+      "n": 307,
+      "success_rate": 0.0,
+      "collision_rate": 1.0,
+      "timeout_rate": 0.0,
+      "avg_steps_success": null,
+      "avg_path_ratio_success": null
+    }
+  },
+  "model_run": "../../../random_s10_k5_d0.2/seed4"
+}

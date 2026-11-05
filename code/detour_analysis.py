@@ -63,14 +63,14 @@ def main():
         for ep_file in sorted(glob.glob(f"{cdir}/seed*/episodes_d{a.density:g}*.csv")):
             tag = os.path.basename(ep_file)[len("episodes_"):-4]
             eps = float(tag.split("_eps")[1]) if "_eps" in tag else 0.0
-            cfg = json.load(open(os.path.join(os.path.dirname(ep_file), "config.json")))
-            ecfg = dict(cfg, density=a.density)
             recs = list(csv.DictReader(open(ep_file)))
             if not recs:
                 continue
-            if "detour_ratio" in recs[0]:
+            if "detour_ratio" in recs[0]:  # always present for newer evaluations (incl. size-transfer dirs without config.json)
                 ratios = {int(r["map_seed"]): float(r["detour_ratio"]) for r in recs}
             else:
+                cfg = json.load(open(os.path.join(os.path.dirname(ep_file), "config.json")))
+                ecfg = dict(cfg, density=a.density)
                 geo = map_geometry(ecfg, len(recs), cache)
                 ratios = {int(r["map_seed"]): geo[int(r["map_seed"])][0] / geo[int(r["map_seed"])][1] for r in recs}
             succ = defaultdict(list)

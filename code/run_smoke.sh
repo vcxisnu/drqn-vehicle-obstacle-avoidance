@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Smoke test (10x10, density 0.2, 2 seeds, very short training, 100 test maps) of the whole pipeline:
 # train -> greedy + eps-greedy eval -> CI/significance table -> plots -> failure/detour analysis.
+# Then the zero-shot size-transfer pipeline (run_transfer.sh) on the smoke models at N in $SIZES (default "15 20").
 # Everything is written to $R (default ./smoke_results), NOT to the thesis results directory.
 # Formal experiments: run_full.sh (5 seeds x 10000 episodes) + run_eval_all.sh (500 maps).
 set -e
@@ -24,4 +25,5 @@ python3 aggregate.py --runs "$R/runs" --out "$R/summary.csv"
 python3 plot.py --runs "$R/runs" --out "$R/plots"
 python3 failure_analysis.py --runs "$R/runs" --out "$R/failures" --render_per_config 1
 python3 detour_analysis.py --runs "$R/runs" --out "$R/detour"
-echo "smoke test OK -> $R/summary.md"
+R="$R" SIZES="${SIZES:-15 20}" NM=$N ./run_transfer.sh
+echo "smoke test OK -> $R/summary.md, $R/summary_N*.md"

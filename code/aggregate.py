@@ -6,6 +6,11 @@ Outputs (default results/):
   summary.md                (1) greedy table, (2) greedy vs epsilon-greedy table (density 0.2),
                             (3) significance tests
   significance.csv          all pairwise tests (overall and per difficulty group)
+Zero-shot size transfer (10x10-trained models evaluated on N x N maps, see evaluate.py --size):
+  python3 aggregate.py --runs results/runs/N15 --out results/summary_N15.csv
+  -> summary_N15.csv / summary_N15.md / significance_N15.csv (the significance file name follows the --out name:
+     "summary" -> "significance"), with an extra eval_size column; tests are within that N only, Holm over the 4
+     primary pairs of that N (same procedure as 10x10). The 10x10 outputs (summary.csv etc.) are unchanged.
 
 Significance tests (pairs: DQN k5 vs DRQN k5, DRQN k3 vs k5, k5 vs k7, k3 vs k7):
   * Welch t-test on the per-seed success rates (n = 5 vs 5, unequal variances).
@@ -56,11 +61,14 @@ def collect(runs="runs", with_evals=False):
     for f in glob.glob(f"{runs}/*/seed*/eval_*.json"):
         e = json.load(open(f))
         e["_file"] = f
-        groups[(e["agent"], e["obs"], e["train_density"], e["eval_density"], e.get("eval_eps", 0.0))].append(e)
+        groups[(e["agent"], e["obs"], e["train_density"], e["eval_density"], e.get("eval_eps", 0.0), e.get("eval_size", 0))].append(e)
     rows = []
-    for (agent, k, td, ed, ee), es in sorted(groups.items()):
+    for (agent, k, td, ed, ee, es_), es in sorted(groups.items()):
         es.sort(key=lambda e: e["seed"])
-        row = {"agent": agent, "obs": k, "train_density": td, "eval_density": ed, "eval_eps": ee, "n_seeds": len(es)}
+        row = {"agent": agent, "obs": k, "train_density": td, "eval_density": ed, "eval_eps": ee}
+        if es_:  # only for size-transfer evaluations; the 10x10 summary.csv keeps its original columns
+            row["eval_size"] = es_
+        row["n_seeds"] = len(es)
         for m in ("success_rate", "collision_rate", "timeout_rate", "avg_steps_success"):
             vals = [e[m] for e in es if e[m] is not None]
             row[m], row[m + "_ci95"] = ci95(vals) if vals else (None, None)
@@ -153,15 +161,24 @@ def main():
     plain = [{k: v for k, v in r.items() if not k.startswith("_")} for r in rows]
     with open(a.out, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(plain[0])); w.writeheader(); w.writerows(plain)
-    sig_path = os.path.join(os.path.dirname(a.out) or ".", "significance.csv")
+    sig_path = os.path.join(os.path.dirname(a.out) or ".", os.path.basename(a.out).replace("summary", "significance", 1))
+    if not os.path.basename(sig_path).startswith("significance"):
+        sig_path = os.path.join(os.path.dirname(a.out) or ".", "significance.csv")
+    sizes = sorted({r["eval_size"] for r in rows if "eval_size" in r})
     if sig:
         with open(sig_path, "w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=list(sig[0])); w.writeheader()
             w.writerows([{k: (round(v, 5) if isinstance(v, float) else v) for k, v in s.items()} for s in sig])
 
+    nmaps = sorted({e["n_maps"] for r in rows for e in r["_evals"]})
+    nmaps = str(nmaps[0]) if len(nmaps) == 1 else "/".join(map(str, nmaps))
+    nseeds = sorted({r["n_seeds"] for r in rows if r["agent"] != "random"} or {5})
+    nseeds = str(nseeds[0]) if len(nseeds) == 1 else "/".join(map(str, nseeds))
     f2 = lambda m, c: "n/a" if m is None else (f"{m:.3f} ± {c:.3f}" if c == c else f"{m:.3f}")
     md = ["# 结果汇总 / Results summary", "",
-          "所有数值为 5 个种子的均值 ± 95% 置信区间（Student t，n=种子数）；测试集为固定的 500 张地图（seed 10,000,000+i）。", "",
+          f"所有数值为 {nseeds} 个种子的均值 ± 95% 置信区间（Student t，n=种子数）；测试集为固定的 {nmaps} 张地图（seed 10,000,000+i）。", "",
+          *([f"**零样本尺寸迁移**：模型均在 10×10 上训练、未重新训练，测试地图尺寸 N={'/'.join(map(str, sizes))}"
+             f"（密度 0.2，起终点曼哈顿距离 ≥7，max_steps=8N，目标偏移 /(N−1) 归一化）。显著性检验仅在同一 N 内进行。", ""] if sizes else []),
           "## 1. 贪心评估（ε=0，主协议） / Greedy evaluation", "",
           "| agent | k | eval density | seeds | success (mean ± 95% CI) | easy | medium | hard | collision | timeout | avg steps (succ.) |",
           "|---|---|---|---|---|---|---|---|---|---|---|"]
@@ -183,8 +200,8 @@ def main():
                   f"{f2(r['success_hard'], r['success_hard_ci95'])} | {f2(r['collision_rate'], r['collision_rate_ci95'])} | "
                   f"{f2(r['timeout_rate'], r['timeout_rate_ci95'])} | {f2(r['avg_steps_success'], r['avg_steps_success_ci95'])} |")
     md += ["", f"## 3. 显著性检验（density {a.density}） / Significance tests", "",
-           "t 检验：以每个种子的成功率为样本（n=5 vs 5；配置间用 Welch t，同一配置 ε-贪心 vs 贪心用配对 t）。配对 bootstrap：两层重采样"
-           "（500 张共享测试地图配对重采样 + 各配置种子独立重采样，10,000 次），给出成功率差 A−B 的 95% 百分位置信区间与双侧 bootstrap p 值。", "",
+           f"t 检验：以每个种子的成功率为样本（n={nseeds} vs {nseeds}；配置间用 Welch t，同一配置 ε-贪心 vs 贪心用配对 t）。配对 bootstrap：两层重采样"
+           f"（{nmaps} 张共享测试地图配对重采样 + 各配置种子独立重采样，10,000 次），给出成功率差 A−B 的 95% 百分位置信区间与双侧 bootstrap p 值。", "",
            "**主假设族（primary）** = 配置间比较 × 贪心评估 × overall 组，对该族做 Holm 校正（列 Holm p）；“显著”= Holm p<0.05 且 bootstrap CI 不含 0。"
            "其余行（难度分组、ε-贪心评估、ε-贪心 vs 贪心）为**探索性分析**，报告未校正 p 值，“显著”= p<0.05 且 bootstrap CI 不含 0。"
            "“未检出差异”不等于“无差异”，请结合 CI 解读（例如 k5 vs k7 的 CI 给出了差异的可能范围）。", "",

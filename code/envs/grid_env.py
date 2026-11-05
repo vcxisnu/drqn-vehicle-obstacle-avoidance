@@ -5,6 +5,17 @@ Observation (flat float32 vector, length 2*k*k + 2):
   [k*k : 2*k*k]  goal channel (1 at goal cell if inside the window)
   [-2:]          goal offset (row offset, col offset) / (size-1), in [-1, 1]
 Use `obs_to_window(obs, k)` to reshape the first part to (2, k, k) for CNNs.
+
+Map side length N (`size`, default 10) is configurable; N = 15 / 20 are used for the zero-shot transfer evaluation
+of the 10x10-trained models (no retraining). Everything is a function of N and nothing changes at N = 10:
+  * obstacle density 0.2 (i.i.d. per cell), start/goal drawn uniformly from free cells;
+  * min Manhattan start-goal distance = max(7, k) = 7, NOT scaled with N (same rule as 10x10);
+  * solvable-path guarantee: maps are regenerated until BFS finds a start->goal path;
+  * max_steps = 8 * N (80 / 120 / 160 for N = 10 / 15 / 20): linear in N, i.e. the budget per unit of map side is
+    the same as in training (8 x the side length >= 4 x the largest possible Manhattan distance 2(N-1));
+  * goal offset normalised by (N - 1) so it stays in [-1, 1]  (=/9 at N = 10). NOTE: a model trained at N = 10
+    learned the scale "1 cell = 1/9"; at N = 15 / 20 one cell is 1/14 / 1/19 -> input-distribution shift;
+  * the k x k window, the out-of-bounds = obstacle padding and the shaping Phi = -d_BFS are N-independent.
 """
 from collections import deque
 from dataclasses import dataclass, asdict
@@ -54,7 +65,7 @@ class GridObstacleEnv(gym.Env):
         assert size >= 5 and obs_size in (3, 5, 7, 9)
         assert obs_size % 2 == 1
         self.size, self.k, self.density = size, obs_size, density
-        self.max_steps = max_steps or 8 * size
+        self.max_steps = max_steps or 8 * size  # 80 at N=10 (unchanged); 120 at N=15, 160 at N=20
         self.dist_metric = dist_metric
         # minimum Manhattan start-goal distance. Default 7 = largest window side (>= k for k in 3/5/7), so that the
         # held-out test maps are IDENTICAL for every method and every window size (map generation does not depend on k).
@@ -109,7 +120,7 @@ class GridObstacleEnv(gym.Env):
         gr, gc = self.goal[0] - r + h, self.goal[1] - c + h
         if 0 <= gr < k and 0 <= gc < k:
             goal[gr, gc] = 1.0
-        d = np.array([(self.goal[0] - r) / (n - 1), (self.goal[1] - c) / (n - 1)], np.float32)  # drow, dcol
+        d = np.array([(self.goal[0] - r) / (n - 1), (self.goal[1] - c) / (n - 1)], np.float32)  # drow, dcol in [-1, 1]; /(N-1) adapts to N
         return np.concatenate([obst.ravel(), goal.ravel(), d]).astype(np.float32)
 
     def _info(self, outcome=None):

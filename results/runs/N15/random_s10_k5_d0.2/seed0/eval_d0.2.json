@@ -1,0 +1,50 @@
+{
+  "run": "/workspace/drqn-repo/results/runs/random_s10_k5_d0.2/seed0",
+  "agent": "random",
+  "seed": 0,
+  "size": 10,
+  "obs": 5,
+  "train_density": 0.2,
+  "eval_density": 0.2,
+  "eval_eps": 0.0,
+  "n_maps": 500,
+  "eval_size": 15,
+  "eval_max_steps": 120,
+  "difficulty_bins_shortest_path": [
+    9,
+    11
+  ],
+  "n": 500,
+  "success_rate": 0.002,
+  "collision_rate": 0.998,
+  "timeout_rate": 0.0,
+  "avg_steps_success": 40.0,
+  "avg_path_ratio_success": 5.714285714285714,
+  "by_difficulty": {
+    "easy": {
+      "n": 109,
+      "success_rate": 0.009174311926605505,
+      "collision_rate": 0.9908256880733946,
+      "timeout_rate": 0.0,
+      "avg_steps_success": 40.0,
+      "avg_path_ratio_success": 5.714285714285714
+    },
+    "medium": {
+      "n": 84,
+      "success_rate": 0.0,
+      "collision_rate": 1.0,
+      "timeout_rate": 0.0,
+      "avg_steps_success": null,
+      "avg_path_ratio_success": null
+    },
+    "hard": {
+      "n": 307,
+      "success_rate": 0.0,
+      "collision_rate": 1.0,
+      "timeout_rate": 0.0,
+      "avg_steps_success": null,
+      "avg_path_ratio_success": null
+    }
+  },
+  "model_run": "../../../random_s10_k5_d0.2/seed0"
+}

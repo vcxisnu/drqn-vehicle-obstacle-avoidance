@@ -1,0 +1,50 @@
+{
+  "run": "/workspace/drqn-repo/results/runs/drqn_s10_k5_d0.2/seed2",
+  "agent": "drqn",
+  "seed": 2,
+  "size": 10,
+  "obs": 5,
+  "train_density": 0.2,
+  "eval_density": 0.2,
+  "eval_eps": 0.01,
+  "n_maps": 500,
+  "eval_size": 15,
+  "eval_max_steps": 120,
+  "difficulty_bins_shortest_path": [
+    9,
+    11
+  ],
+  "n": 500,
+  "success_rate": 0.858,
+  "collision_rate": 0.06,
+  "timeout_rate": 0.082,
+  "avg_steps_success": 14.63869463869464,
+  "avg_path_ratio_success": 1.1280212247121348,
+  "by_difficulty": {
+    "easy": {
+      "n": 109,
+      "success_rate": 0.9541284403669725,
+      "collision_rate": 0.027522935779816515,
+      "timeout_rate": 0.01834862385321101,
+      "avg_steps_success": 9.01923076923077,
+      "avg_path_ratio_success": 1.1228250915750915
+    },
+    "medium": {
+      "n": 84,
+      "success_rate": 0.9166666666666666,
+      "collision_rate": 0.047619047619047616,
+      "timeout_rate": 0.03571428571428571,
+      "avg_steps_success": 11.597402597402597,
+      "avg_path_ratio_success": 1.0997638724911452
+    },
+    "hard": {
+      "n": 307,
+      "success_rate": 0.8078175895765473,
+      "collision_rate": 0.0749185667752443,
+      "timeout_rate": 0.11726384364820847,
+      "avg_steps_success": 17.93951612903226,
+      "avg_path_ratio_success": 1.1389737003866054
+    }
+  },
+  "model_run": "../../../drqn_s10_k5_d0.2/seed2"
+}

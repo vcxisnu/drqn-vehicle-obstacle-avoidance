@@ -54,3 +54,20 @@ def test_train_eval_round_trip(tmp_path, agent):
         a1, a2 = ag.act(o, 0.0, rng), ag2.act(o, 0.0, rng)
         assert a1 == a2
         o, *_ = env.step(a1)
+
+
+def test_size_transfer_eval_writes_to_separate_dir(tmp_path):
+    """evaluate.py --size: a 10x10 run is evaluated on 15x15 maps; outputs go to out_dir, the run dir is untouched."""
+    import os
+    from evaluate import evaluate
+    from train import run
+    rd = tmp_path / "runs" / "random_s10_k5_d0.2" / "seed0"
+    cfg = dict(agent="random", size=10, obs=5, density=0.2, episodes=1, max_steps=None, min_dist=None, eps_start=1.0,
+               eps_end=0.01, eps_decay_frac=0.6, gamma=0.99, seed=0, out=str(rd))
+    run(cfg)
+    before = sorted(os.listdir(rd))
+    od = tmp_path / "runs" / "N15" / "random_s10_k5_d0.2" / "seed0"
+    r = evaluate(str(rd), n_maps=5, size=15, out_dir=str(od), eval_eps=0.01)
+    assert sorted(os.listdir(rd)) == before
+    assert r["eval_size"] == 15 and r["eval_max_steps"] == 120 and r["size"] == 10
+    assert {"eval_d0.2_eps0.01.json", "episodes_d0.2_eps0.01.csv", "source.json"} <= set(os.listdir(od))
