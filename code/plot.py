@@ -12,11 +12,14 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from aggregate import collect, ci95, tcrit
+from common import RESULTS_DIR
+
+AGENT_LABELS = ("dqn", "drqn", "tabular")
 
 
 def train_curves(runs, agent, k, metric="success", win=100):
     curves = []
-    for log in glob.glob(f"{runs}/{agent}_*_k{k}_*/seed*/train_log.csv"):
+    for log in glob.glob(f"{runs}/{agent}_s[0-9]*_k{k}_*/seed*/train_log.csv"):
         x = np.array([float(r[metric]) for r in csv.DictReader(open(log))])
         curves.append(np.convolve(x, np.ones(win) / win, mode="valid"))
     if not curves:
@@ -27,7 +30,8 @@ def train_curves(runs, agent, k, metric="success", win=100):
 
 
 def main():
-    p = argparse.ArgumentParser(); p.add_argument("--runs", default="runs"); p.add_argument("--out", default="plots")
+    p = argparse.ArgumentParser(); p.add_argument("--runs", default=os.path.join(RESULTS_DIR, "runs"))
+    p.add_argument("--out", default=os.path.join(RESULTS_DIR, "plots"))
     p.add_argument("--k", type=int, default=5); p.add_argument("--density", type=float, default=0.2)
     a = p.parse_args(); os.makedirs(a.out, exist_ok=True)
     all_rows = collect(a.runs)
@@ -36,7 +40,7 @@ def main():
     nz = lambda v: 0.0 if v is None or np.isnan(v) else v
 
     # ---- training curves (mean ± 95% CI band over seeds, moving average 100 episodes)
-    for name, sets in (("exp1", [("dqn", a.k), ("drqn", a.k)]), ("exp2", [("drqn", 3), ("drqn", 5), ("drqn", 7)])):
+    for name, sets in (("exp1", [(ag, a.k) for ag in AGENT_LABELS if ag != "tabular"]), ("exp2", [("drqn", 3), ("drqn", 5), ("drqn", 7)])):
         fig, axs = plt.subplots(1, 2, figsize=(12, 4.5))
         for ag, k in sets:
             for ax_, metric in zip(axs, ("reward", "success")):
@@ -51,7 +55,7 @@ def main():
 
     # ---- Experiment 1
     fig, ax = plt.subplots(1, 2, figsize=(12, 4.5))
-    for ag in ("dqn", "drqn", "tabular"):
+    for ag in AGENT_LABELS:
         c = train_curves(a.runs, ag, a.k, "success")
         if c:
             m, s, n = c; x = np.arange(len(m))

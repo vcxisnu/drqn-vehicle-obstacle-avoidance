@@ -6,3 +6,4 @@ scipy==1.18.1
 matplotlib==3.11.2
 pygame==2.6.1   # visualize.py (headless rendering)
 pillow==13.0.0  # visualize.py (GIF export)
+pytest>=8      # tests/ (optional)

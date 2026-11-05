@@ -143,11 +143,8 @@ class GridObstacleEnv(gym.Env):
         if trunc:
             reward += R.timeout
             outcome = "timeout"
-        obs = self._obs() if outcome != "collision" else self._obs_safe()
-        return obs, float(reward), term, trunc, self._info(outcome)
-
-    def _obs_safe(self):
-        return self._obs()  # position is the obstacle cell; window still well-defined
+        # after a collision the position is the obstacle cell; the window is still well-defined (terminal obs)
+        return self._obs(), float(reward), term, trunc, self._info(outcome)
 
     def render(self):
         ch = {0: ".", 1: "#"}

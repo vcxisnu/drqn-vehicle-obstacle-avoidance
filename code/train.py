@@ -1,7 +1,7 @@
 import argparse, csv, json, os, random, time
 import numpy as np
 import torch
-from common import AGENTS, DEFAULT_GAMMA, make_env, make_agent, model_file
+from common import AGENTS, DEFAULT_GAMMA, RESULTS_DIR, make_env, make_agent, model_file
 
 
 def main():
@@ -25,7 +25,7 @@ def main():
     p.add_argument("--target_update", type=int, default=1000)
     p.add_argument("--learn_start", type=int, default=1000)
     p.add_argument("--hidden", type=int, default=128)
-    p.add_argument("--out", default=None)
+    p.add_argument("--out", default=None, help="run directory (default results/runs/<agent>_s<size>_k<obs>_d<density>)")
     args = vars(p.parse_args())
     args["gamma"] = DEFAULT_GAMMA  # recorded in config.json; agent discount AND shaping gamma (not a CLI option)
     args["reward_version"] = "pbrs_v2"  # F = 0.1*(gamma*Phi(s') - Phi(s)), Phi = -d_BFS, Phi(terminal) = 0
@@ -38,7 +38,7 @@ def main():
 
 
 def run(cfg):
-    out = cfg["out"] or f"runs/{cfg['agent']}_s{cfg['size']}_k{cfg['obs']}_d{cfg['density']}/seed{cfg['seed']}"
+    out = cfg["out"] or os.path.join(RESULTS_DIR, "runs", f"{cfg['agent']}_s{cfg['size']}_k{cfg['obs']}_d{cfg['density']}", f"seed{cfg['seed']}")
     cfg["out"] = out
     os.makedirs(out, exist_ok=True)
     json.dump(cfg, open(os.path.join(out, "config.json"), "w"), indent=2)

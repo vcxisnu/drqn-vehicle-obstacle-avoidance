@@ -1,10 +1,14 @@
 import json, os
 from envs.grid_env import GridObstacleEnv
-from agents.tabular import TabularQAgent
-from agents.deep import DQNAgent, DRQNAgent
+# agents are imported lazily inside make_agent so that the analysis scripts (aggregate/plot/failure/detour) run without torch
 
 AGENTS = ["tabular", "dqn", "drqn", "random"]
 DEFAULT_GAMMA = 0.99  # agent discount; the env's potential-based shaping uses the SAME value
+
+# repository layout: <root>/code/*.py, <root>/results/...  (no absolute paths anywhere; override with --runs/--out)
+CODE_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(CODE_DIR)
+RESULTS_DIR = os.environ.get("RESULTS_DIR", os.path.join(ROOT_DIR, "results"))
 
 
 class RandomAgent:
@@ -34,11 +38,12 @@ def make_agent(cfg, obs_dim):
     if a == "random":
         return RandomAgent()
     if a == "tabular":
+        from agents.tabular import TabularQAgent
         return TabularQAgent(obs_dim, lr=cfg.get("tab_lr", 0.1), gamma=hp["gamma"])
+    from agents.deep import DQNAgent, DRQNAgent
     if a == "dqn":
         return DQNAgent(obs_dim, k, **hp)
-    core = "lstm"
-    return DRQNAgent(obs_dim, k, core=core, seq_len=cfg.get("seq_len", 16), burn_in=cfg.get("burn_in", 8), **hp)
+    return DRQNAgent(obs_dim, k, core="lstm", seq_len=cfg.get("seq_len", 16), burn_in=cfg.get("burn_in", 8), **hp)
 
 
 def model_file(run_dir, agent):

@@ -4,15 +4,16 @@ Interactive:  python3 visualize.py [--run RUN_SEED_DIR]
    N / Space : new random map (env generation rules)    R : replay same map
    + / -     : speed up / slow down                      Q / Esc : quit
 Headless GIF: python3 visualize.py --record out.gif --episodes 4   (uses SDL_VIDEODRIVER=dummy)
-Default checkpoint: best DRQN k=5 seed (highest eval_d0.2 success) under /workspace/thesis/results/runs.
+Default checkpoint: best DRQN k=5 seed (highest eval_d0.2 success) under results/runs.
 """
 import argparse, glob, json, os, sys
 import numpy as np
+from common import RESULTS_DIR
 
 CELL, PANEL = 44, 70
 
 
-def best_run(root="/workspace/thesis/results/runs/drqn_s10_k5_d0.2"):
+def best_run(root=os.path.join(RESULTS_DIR, "runs", "drqn_s10_k5_d0.2")):
     best, score = None, -1
     for d in sorted(glob.glob(f"{root}/seed*")):
         if not os.path.exists(os.path.join(d, "model.pt")):

@@ -53,6 +53,7 @@ class _DeepBase:
         self.nA, self.gamma, self.bs = n_actions, gamma, batch_size
         self.target_update, self.train_every, self.learn_start = target_update, train_every, learn_start
         self.device = torch.device(device)
+        self.in_dim = obs_dim
         self.net = QNet(obs_dim, n_actions, hidden, core).to(self.device)
         self.tgt = QNet(obs_dim, n_actions, hidden, core).to(self.device)
         self.tgt.load_state_dict(self.net.state_dict())
@@ -86,13 +87,33 @@ class _DeepBase:
         self.tgt.load_state_dict(self.net.state_dict())
 
 
+class RingBuffer:
+    """Fixed-size uniform transition replay (O(1) sampling; a deque needs O(n) random indexing)."""
+
+    def __init__(self, capacity):
+        self.capacity, self.data, self.pos = capacity, [], 0
+
+    def append(self, item):
+        if len(self.data) < self.capacity:
+            self.data.append(item)
+        else:
+            self.data[self.pos] = item
+        self.pos = (self.pos + 1) % self.capacity
+
+    def sample(self, n):
+        return [self.data[i] for i in np.random.randint(len(self.data), size=n)]
+
+    def __len__(self):
+        return len(self.data)
+
+
 class DQNAgent(_DeepBase):
     recurrent = False
 
     def __init__(self, obs_dim, k, **kw):
         kw.pop("core", None)
         super().__init__(obs_dim, k, core=None, **kw)
-        self.buf = deque(maxlen=self.buffer_size)
+        self.buf = RingBuffer(self.buffer_size)
 
     def reset_state(self):
         pass
@@ -113,7 +134,7 @@ class DQNAgent(_DeepBase):
         pass
 
     def update(self):
-        batch = random.sample(self.buf, self.bs)
+        batch = self.buf.sample(self.bs)
         o, a, r, o2, d, _tr = (torch.as_tensor(np.array(x), device=self.device) for x in zip(*batch))
         q = self.net(o)[0].gather(1, a.long()[:, None]).squeeze(1)
         with torch.no_grad():
@@ -125,7 +146,11 @@ class DQNAgent(_DeepBase):
 class DRQNAgent(_DeepBase):
     """DRQN with whole-episode replay; sampled sub-sequences of length seq_len,
     hidden state zero-initialised at (start - burn_in); loss masked on the burn-in prefix
-    (R2D2-style burn-in, without stored hidden states)."""
+    (R2D2-style burn-in, without stored hidden states).
+    NOTE: the hidden state is therefore trained on at most burn_in + seq_len steps of history (24 by default),
+    while at acting time it accumulates over the whole episode (up to max_steps).
+    Episodes are sampled uniformly (then a start step uniformly inside the episode), so transitions of short
+    episodes are over-sampled (probability ~ 1/length); kept as in the thesis runs."""
     recurrent = True
 
     def __init__(self, obs_dim, k, core="lstm", seq_len=16, burn_in=8, **kw):
@@ -163,14 +188,13 @@ class DRQNAgent(_DeepBase):
             self.stored -= len(self.episodes.popleft()[1])
         self._cur = []
 
-    def update(self):
-        if not self.episodes:
-            return None
+    def sample_batch(self):
+        """Returns obs [B,T+1,D], act [B,T], rew [B,T], done [B,T], mask [B,T] (numpy), T = burn_in + seq_len."""
         L, B, Bi = self.seq_len, self.burn_in, self.bs
         T = L + B
-        obs = np.zeros((Bi, T + 1, self.episodes[0][0].shape[1]), np.float32)
+        obs = np.zeros((Bi, T + 1, self.in_dim), np.float32)
         act = np.zeros((Bi, T), np.int64); rew = np.zeros((Bi, T), np.float32)
-        done = np.ones((Bi, T), np.float32); mask = np.zeros((Bi, T), np.float32)  # padded steps masked; mask = np.zeros((Bi, T), np.float32)
+        done = np.ones((Bi, T), np.float32); mask = np.zeros((Bi, T), np.float32)  # padded steps: done=1, mask=0
         for i in range(Bi):
             eo, ea, er, ed, _etr = self.episodes[random.randrange(len(self.episodes))]
             n = len(ea)
@@ -181,8 +205,14 @@ class DRQNAgent(_DeepBase):
             obs[i, :m + 1] = eo[b:e + 1]
             act[i, :m], rew[i, :m], done[i, :m] = ea[b:e], er[b:e], ed[b:e]
             mask[i, s - b:m] = 1.0
+        return obs, act, rew, done, mask
+
+    def update(self):
+        if not self.episodes:
+            return None
+        Bi = self.bs
         t = lambda x: torch.as_tensor(x, device=self.device)
-        obs, act, rew, done, mask = map(t, (obs, act, rew, done, mask))
+        obs, act, rew, done, mask = map(t, self.sample_batch())
         st = self.net.core.init_state(Bi, self.device)
         q_all, _ = self.net(obs, st)                         # [B, T+1, A]
         q = q_all[:, :-1].gather(2, act[..., None]).squeeze(-1)

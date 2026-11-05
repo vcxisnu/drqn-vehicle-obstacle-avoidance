@@ -9,6 +9,9 @@ Outputs (default results/):
 
 Significance tests (pairs: DQN k5 vs DRQN k5, DRQN k3 vs k5, k5 vs k7, k3 vs k7):
   * Welch t-test on the per-seed success rates (n = 5 vs 5, unequal variances).
+  * Multiple comparisons: the PRIMARY family = between-config pairs, greedy evaluation, "overall" group;
+    Holm-Bonferroni adjusted p-values (holm_p) are reported for it. Every other row (difficulty subgroups,
+    eps-greedy evaluations, greedy vs eps-greedy) is EXPLORATORY and reported unadjusted.
   * Also within each config: eps-greedy (A) vs greedy (B) evaluation of the SAME models -> paired t-test over seeds,
     bootstrap with seeds AND maps paired.
   * Two-level paired bootstrap of the success-rate difference: every replicate resamples the 500 test maps
@@ -20,9 +23,21 @@ import argparse, csv, glob, json, os
 from collections import defaultdict
 import numpy as np
 from scipy import stats
+from common import RESULTS_DIR
 
 DIFFS = ("easy", "medium", "hard")
 PAIRS = [(("dqn", 5), ("drqn", 5)), (("drqn", 3), ("drqn", 5)), (("drqn", 5), ("drqn", 7)), (("drqn", 3), ("drqn", 7))]
+
+
+def holm(pvals):
+    """Holm-Bonferroni step-down adjusted p-values (monotone, capped at 1)."""
+    p = np.asarray(pvals, float); m = len(p)
+    order = np.argsort(p); adj = np.empty(m)
+    running = 0.0
+    for rank, i in enumerate(order):
+        running = max(running, (m - rank) * p[i])
+        adj[i] = min(1.0, running)
+    return adj
 
 
 def tcrit(n):
@@ -96,8 +111,11 @@ def _test(ea, eb, ee_a, ee_b, A, B, same_seeds=False):
         out.append({"eval_eps": ee_a if ee_a == ee_b else f"{ee_a:g} vs {ee_b:g}",
                     "A": f"{A[0]}_k{A[1]}", "B": f"{B[0]}_k{B[1]}", "group": grp,
                     "n_maps": int(sel.sum()), "mean_A": xa.mean(), "mean_B": xb.mean(),
-                    "diff_A_minus_B": xa.mean() - xb.mean(), "t_test": "paired t (same models)" if same_seeds else "Welch", "welch_t": float(t), "welch_p": float(p),
+                    "diff_A_minus_B": xa.mean() - xb.mean(), "t_test": "paired t (same models)" if same_seeds else "Welch",
+                    "t_stat": float(t), "t_p": float(p),
                     "boot_ci_lo": lo, "boot_ci_hi": hi, "boot_p": pb,
+                    "family": "primary" if (grp == "overall" and not same_seeds and ee_a == 0 and ee_b == 0) else "exploratory",
+                    "holm_p": float("nan"),
                     "significant_0.05": bool(p < 0.05 and (lo > 0 or hi < 0))})
     return out
 
@@ -116,11 +134,17 @@ def significance(rows, density=0.2):
         for ee in epss:
             if ee > 0 and (C + (ee,)) in idx and (C + (0.0,)) in idx:
                 out += _test(idx[C + (ee,)]["_evals"], idx[C + (0.0,)]["_evals"], ee, 0.0, C, C, same_seeds=True)
+    prim = [s for s in out if s["family"] == "primary"]
+    if prim:
+        for s_, hp in zip(prim, holm([s["t_p"] for s in prim])):
+            s_["holm_p"] = float(hp)
+            s_["significant_0.05"] = bool(hp < 0.05 and (s_["boot_ci_lo"] > 0 or s_["boot_ci_hi"] < 0))
     return out
 
 
 def main():
-    p = argparse.ArgumentParser(); p.add_argument("--runs", default="runs"); p.add_argument("--out", default="results/summary.csv")
+    p = argparse.ArgumentParser(); p.add_argument("--runs", default=os.path.join(RESULTS_DIR, "runs"))
+    p.add_argument("--out", default=os.path.join(RESULTS_DIR, "summary.csv"))
     p.add_argument("--density", type=float, default=0.2, help="density for the eps table and significance tests")
     a = p.parse_args()
     rows = collect(a.runs, with_evals=True)
@@ -159,17 +183,20 @@ def main():
                   f"{f2(r['success_hard'], r['success_hard_ci95'])} | {f2(r['collision_rate'], r['collision_rate_ci95'])} | "
                   f"{f2(r['timeout_rate'], r['timeout_rate_ci95'])} | {f2(r['avg_steps_success'], r['avg_steps_success_ci95'])} |")
     md += ["", f"## 3. 显著性检验（density {a.density}） / Significance tests", "",
-           "Welch t 检验：以每个种子的成功率为样本（n=5 vs 5）。配对 bootstrap：两层重采样（500 张共享测试地图配对重采样 + 各配置种子独立重采样，10,000 次），"
-           "给出成功率差 A−B 的 95% 百分位置信区间与双侧 bootstrap p 值。“显著”= Welch p<0.05 且 bootstrap CI 不含 0。"
-           "“eval ε”列为 “e vs 0” 的行是同一配置 ε-贪心(A) 与贪心(B) 的比较：同一批模型，故改用配对 t 检验（按种子配对），bootstrap 中种子与地图都配对重采样（“Welch p”列此时为配对 t 检验 p 值）。", "",
-           "| eval ε | A | B | group | n maps | A | B | A−B | Welch p | bootstrap 95% CI of A−B | bootstrap p | 结论 |",
-           "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+           "t 检验：以每个种子的成功率为样本（n=5 vs 5；配置间用 Welch t，同一配置 ε-贪心 vs 贪心用配对 t）。配对 bootstrap：两层重采样"
+           "（500 张共享测试地图配对重采样 + 各配置种子独立重采样，10,000 次），给出成功率差 A−B 的 95% 百分位置信区间与双侧 bootstrap p 值。", "",
+           "**主假设族（primary）** = 配置间比较 × 贪心评估 × overall 组，对该族做 Holm 校正（列 Holm p）；“显著”= Holm p<0.05 且 bootstrap CI 不含 0。"
+           "其余行（难度分组、ε-贪心评估、ε-贪心 vs 贪心）为**探索性分析**，报告未校正 p 值，“显著”= p<0.05 且 bootstrap CI 不含 0。"
+           "“未检出差异”不等于“无差异”，请结合 CI 解读（例如 k5 vs k7 的 CI 给出了差异的可能范围）。", "",
+           "| eval ε | A | B | group | family | n maps | A | B | A−B | t p | Holm p | bootstrap 95% CI of A−B | bootstrap p | 结论 |",
+           "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     bp = lambda p: "<1e-4" if p == 0 else f"{p:.2g}"  # 10,000 replicates -> resolution 1e-4
     for s in sig:
-        verdict = "显著" if s["significant_0.05"] else "不显著"
+        verdict = "显著" if s["significant_0.05"] else "未检出差异"
         ee = s["eval_eps"] if isinstance(s["eval_eps"], str) else f"{s['eval_eps']:g}"
-        md.append(f"| {ee} | {s['A']} | {s['B']} | {s['group']} | {s['n_maps']} | {s['mean_A']:.3f} | {s['mean_B']:.3f} | "
-                  f"{s['diff_A_minus_B']:+.3f} | {s['welch_p']:.2g} | [{s['boot_ci_lo']:+.3f}, {s['boot_ci_hi']:+.3f}] | "
+        hp = f"{s['holm_p']:.2g}" if s["holm_p"] == s["holm_p"] else "–"
+        md.append(f"| {ee} | {s['A']} | {s['B']} | {s['group']} | {s['family']} | {s['n_maps']} | {s['mean_A']:.3f} | {s['mean_B']:.3f} | "
+                  f"{s['diff_A_minus_B']:+.3f} | {s['t_p']:.2g} | {hp} | [{s['boot_ci_lo']:+.3f}, {s['boot_ci_hi']:+.3f}] | "
                   f"{bp(s['boot_p'])} | {verdict} |")
     open(a.out.replace(".csv", ".md"), "w").write("\n".join(md) + "\n")
     fmt = lambda m, c: "  n/a " if m is None else f"{m:.3f}±{c:.3f}"
@@ -179,8 +206,8 @@ def main():
               f"med={fmt(r['success_medium'], r['success_medium_ci95'])} hard={fmt(r['success_hard'], r['success_hard_ci95'])}")
     for s in sig:
         if s["group"] == "overall":
-            print(f"eps={s['eval_eps']} {s['A']} vs {s['B']}: diff={s['diff_A_minus_B']:+.3f} welch_p={s['welch_p']:.3g} "
-                  f"boot CI=[{s['boot_ci_lo']:+.3f},{s['boot_ci_hi']:+.3f}] boot_p={s['boot_p']:.3g}")
+            print(f"eps={s['eval_eps']} {s['A']} vs {s['B']} [{s['family']}]: diff={s['diff_A_minus_B']:+.3f} t_p={s['t_p']:.3g} "
+                  f"holm_p={s['holm_p']:.3g} boot CI=[{s['boot_ci_lo']:+.3f},{s['boot_ci_hi']:+.3f}] boot_p={s['boot_p']:.3g}")
     print("saved", a.out, ".md and", sig_path)
 
 

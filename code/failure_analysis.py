@@ -43,6 +43,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from envs.grid_env import ACTIONS, bfs_dist, corridor_score
+from common import RESULTS_DIR
 
 LABELS = ["collision", "border_bump_stuck", "dead_end_stuck", "two_cell_osc", "long_cycle", "narrow_corridor",
           "u_trap", "dead_end_exited", "other_timeout"]
@@ -178,8 +179,8 @@ def render(f, title, path):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--runs", default="/workspace/thesis/results/runs")
-    p.add_argument("--out", default="/workspace/thesis/results/failures")
+    p.add_argument("--runs", default=os.path.join(RESULTS_DIR, "runs"))
+    p.add_argument("--out", default=os.path.join(RESULTS_DIR, "failures"))
     p.add_argument("--density", default="0.2")
     p.add_argument("--eval_eps", default="0", help="analyse failures of the eps-greedy evaluation with this eps (0 = greedy)")
     p.add_argument("--render_per_config", type=int, default=4)

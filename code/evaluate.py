@@ -47,8 +47,10 @@ def evaluate(run_dir, n_maps=300, density=None, bins=(9, 11), max_failures=10**9
             o, r, term, trunc, info = env.step(agent.act(o, eval_eps, rng))
             done = term or trunc
         snap = env.snapshot()
+        man = abs(info["start"][0] - info["goal"][0]) + abs(info["start"][1] - info["goal"][1])
         rec = {"map_seed": TEST_SEED_BASE + i, "outcome": info["outcome"], "steps": info["t"],
                "shortest": info["shortest"], "difficulty": difficulty(info["shortest"], bins),
+               "manhattan": man, "detour_ratio": round(info["shortest"] / man, 4),  # >1: the goal requires a detour
                "corridor_score": corridor_score(snap["grid"], snap["trajectory"])}
         eps.append(rec)
         if rec["outcome"] != "success" and len(failures) < max_failures:
