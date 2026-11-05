@@ -1,0 +1,52 @@
+dqn     k=5 eval_d=0.1 eps=0 seeds=5 succ=0.810±0.111 | easy=0.861±0.100 med=0.816±0.123 hard=0.684±0.139
+dqn     k=5 eval_d=0.2 eps=0 seeds=5 succ=0.689±0.078 | easy=0.797±0.057 med=0.690±0.085 hard=0.502±0.123
+dqn     k=5 eval_d=0.2 eps=0.01 seeds=5 succ=0.698±0.068 | easy=0.804±0.054 med=0.704±0.059 hard=0.509±0.126
+dqn     k=5 eval_d=0.2 eps=0.05 seeds=5 succ=0.713±0.046 | easy=0.817±0.034 med=0.727±0.065 hard=0.521±0.057
+dqn     k=5 eval_d=0.3 eps=0 seeds=5 succ=0.548±0.076 | easy=0.749±0.086 med=0.604±0.088 hard=0.317±0.073
+drqn    k=3 eval_d=0.1 eps=0 seeds=5 succ=0.972±0.016 | easy=0.983±0.020 med=0.981±0.013 hard=0.936±0.020
+drqn    k=3 eval_d=0.2 eps=0 seeds=5 succ=0.875±0.019 | easy=0.958±0.021 med=0.907±0.022 hard=0.700±0.026
+drqn    k=3 eval_d=0.2 eps=0.01 seeds=5 succ=0.863±0.021 | easy=0.942±0.027 med=0.896±0.030 hard=0.692±0.008
+drqn    k=3 eval_d=0.2 eps=0.05 seeds=5 succ=0.804±0.009 | easy=0.897±0.020 med=0.831±0.046 hard=0.614±0.027
+drqn    k=3 eval_d=0.3 eps=0 seeds=5 succ=0.751±0.024 | easy=0.911±0.023 med=0.835±0.022 hard=0.546±0.046
+drqn    k=5 eval_d=0.1 eps=0 seeds=5 succ=0.988±0.012 | easy=0.992±0.009 med=0.986±0.019 hard=0.979±0.020
+drqn    k=5 eval_d=0.2 eps=0 seeds=5 succ=0.926±0.014 | easy=0.976±0.013 med=0.970±0.016 hard=0.791±0.034
+drqn    k=5 eval_d=0.2 eps=0.01 seeds=5 succ=0.914±0.021 | easy=0.968±0.021 med=0.958±0.022 hard=0.774±0.032
+drqn    k=5 eval_d=0.2 eps=0.05 seeds=5 succ=0.857±0.014 | easy=0.929±0.012 med=0.904±0.024 hard=0.683±0.038
+drqn    k=5 eval_d=0.3 eps=0 seeds=5 succ=0.802±0.024 | easy=0.943±0.022 med=0.884±0.028 hard=0.615±0.040
+drqn    k=7 eval_d=0.1 eps=0 seeds=5 succ=0.979±0.012 | easy=0.985±0.011 med=0.975±0.020 hard=0.970±0.022
+drqn    k=7 eval_d=0.2 eps=0 seeds=5 succ=0.916±0.014 | easy=0.966±0.022 med=0.955±0.018 hard=0.789±0.050
+drqn    k=7 eval_d=0.2 eps=0.01 seeds=5 succ=0.907±0.016 | easy=0.958±0.023 med=0.946±0.016 hard=0.777±0.042
+drqn    k=7 eval_d=0.2 eps=0.05 seeds=5 succ=0.854±0.027 | easy=0.922±0.020 med=0.900±0.026 hard=0.688±0.059
+drqn    k=7 eval_d=0.3 eps=0 seeds=5 succ=0.788±0.020 | easy=0.915±0.023 med=0.860±0.038 hard=0.622±0.029
+random  k=5 eval_d=0.1 eps=0 seeds=5 succ=0.022±0.010 | easy=0.029±0.014 med=0.022±0.016 hard=0.004±0.006
+random  k=5 eval_d=0.2 eps=0 seeds=5 succ=0.003±0.003 | easy=0.007±0.006 med=0.000±0.000 hard=0.000±0.000
+random  k=5 eval_d=0.3 eps=0 seeds=5 succ=0.000±0.000 | easy=0.000±0.000 med=0.000±0.000 hard=0.000±0.000
+eps=0 dqn_k5 vs drqn_k5: diff=-0.237 welch_p=0.000873 boot CI=[-0.290,-0.176] boot_p=0
+eps=0 drqn_k3 vs drqn_k5: diff=-0.050 welch_p=0.000456 boot CI=[-0.074,-0.026] boot_p=0
+eps=0 drqn_k5 vs drqn_k7: diff=+0.009 welch_p=0.242 boot CI=[-0.011,+0.030] boot_p=0.37
+eps=0 drqn_k3 vs drqn_k7: diff=-0.041 welch_p=0.00157 boot CI=[-0.066,-0.015] boot_p=0.0022
+eps=0.01 dqn_k5 vs drqn_k5: diff=-0.216 welch_p=0.000503 boot CI=[-0.268,-0.163] boot_p=0
+eps=0.01 drqn_k3 vs drqn_k5: diff=-0.051 welch_p=0.00136 boot CI=[-0.078,-0.024] boot_p=0.0002
+eps=0.01 drqn_k5 vs drqn_k7: diff=+0.007 welch_p=0.47 boot CI=[-0.017,+0.032] boot_p=0.542
+eps=0.01 drqn_k3 vs drqn_k7: diff=-0.044 welch_p=0.00195 boot CI=[-0.071,-0.017] boot_p=0.003
+eps=0.05 dqn_k5 vs drqn_k5: diff=-0.144 welch_p=0.000562 boot CI=[-0.184,-0.102] boot_p=0
+eps=0.05 drqn_k3 vs drqn_k5: diff=-0.054 welch_p=4.32e-05 boot CI=[-0.080,-0.027] boot_p=0.0004
+eps=0.05 drqn_k5 vs drqn_k7: diff=+0.003 welch_p=0.777 boot CI=[-0.025,+0.033] boot_p=0.861
+eps=0.05 drqn_k3 vs drqn_k7: diff=-0.050 welch_p=0.00428 boot CI=[-0.081,-0.019] boot_p=0.0022
+saved /workspace/thesis/results/summary.csv .md and /workspace/thesis/results/significance.csv
+saved plots to /workspace/thesis/results/plots
+dqn_s10_k5_d0.2 eps=0 fail=778/2500 {'border_bump_stuck': 3.7, 'dead_end_stuck': 2.7, 'two_cell_osc': 90.7, 'long_cycle': 2.8} periodic% 100.0
+drqn_s10_k3_d0.2 eps=0 fail=312/2500 {'collision': 1.3, 'border_bump_stuck': 3.2, 'dead_end_stuck': 6.7, 'two_cell_osc': 26.0, 'long_cycle': 62.8} periodic% 69.2
+drqn_s10_k5_d0.2 eps=0 fail=186/2500 {'border_bump_stuck': 1.6, 'dead_end_stuck': 5.4, 'two_cell_osc': 41.9, 'long_cycle': 51.1} periodic% 88.7
+drqn_s10_k7_d0.2 eps=0 fail=209/2500 {'border_bump_stuck': 1.0, 'dead_end_stuck': 2.9, 'two_cell_osc': 43.1, 'long_cycle': 53.1} periodic% 82.3
+saved /workspace/thesis/results/failures/failure_summary.csv
+dqn_s10_k5_d0.2 eps=0.01 fail=756/2500 {'collision': 19.3, 'border_bump_stuck': 3.6, 'dead_end_stuck': 2.0, 'two_cell_osc': 72.5, 'long_cycle': 2.6} periodic% 99.5
+drqn_s10_k3_d0.2 eps=0.01 fail=343/2500 {'collision': 32.7, 'border_bump_stuck': 2.0, 'dead_end_stuck': 4.1, 'two_cell_osc': 14.3, 'long_cycle': 46.9} periodic% 65.8
+drqn_s10_k5_d0.2 eps=0.01 fail=215/2500 {'collision': 36.3, 'border_bump_stuck': 1.4, 'dead_end_stuck': 0.9, 'two_cell_osc': 24.2, 'long_cycle': 37.2} periodic% 82.5
+drqn_s10_k7_d0.2 eps=0.01 fail=233/2500 {'collision': 28.3, 'border_bump_stuck': 0.9, 'dead_end_stuck': 1.3, 'two_cell_osc': 27.0, 'long_cycle': 42.5} periodic% 77.2
+saved /workspace/thesis/results/failures/failure_summary_eps0.01.csv
+dqn_s10_k5_d0.2 eps=0.05 fail=717/2500 {'collision': 60.1, 'border_bump_stuck': 1.4, 'dead_end_stuck': 1.0, 'two_cell_osc': 33.8, 'long_cycle': 3.8} periodic% 93.7
+drqn_s10_k3_d0.2 eps=0.05 fail=491/2500 {'collision': 82.3, 'border_bump_stuck': 0.2, 'dead_end_stuck': 0.4, 'two_cell_osc': 4.5, 'long_cycle': 12.6} periodic% 54.0
+drqn_s10_k5_d0.2 eps=0.05 fail=357/2500 {'collision': 88.8, 'two_cell_osc': 2.0, 'long_cycle': 9.2} periodic% 52.5
+drqn_s10_k7_d0.2 eps=0.05 fail=365/2500 {'collision': 84.4, 'border_bump_stuck': 0.3, 'dead_end_stuck': 0.3, 'two_cell_osc': 4.4, 'long_cycle': 10.7} periodic% 54.4
+saved /workspace/thesis/results/failures/failure_summary_eps0.05.csv

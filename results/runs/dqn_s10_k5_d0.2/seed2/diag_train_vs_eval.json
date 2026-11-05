@@ -1,0 +1,5 @@
+{
+  "frozen_greedy": 0.611,
+  "frozen_eps0.01": 0.642,
+  "online_eps0.01": 0.828
+}

@@ -1,7 +1,7 @@
 import argparse, csv, json, os, random, time
 import numpy as np
 import torch
-from common import AGENTS, make_env, make_agent, model_file
+from common import AGENTS, DEFAULT_GAMMA, make_env, make_agent, model_file
 
 
 def main():
@@ -13,7 +13,7 @@ def main():
     p.add_argument("--episodes", type=int, default=3000)
     p.add_argument("--seeds", type=int, nargs="+", default=[0], help="one run per seed (sequential)")
     p.add_argument("--max_steps", type=int, default=None)
-    p.add_argument("--min_dist", type=int, default=None, help="min Manhattan start-goal distance (default k)")
+    p.add_argument("--min_dist", type=int, default=None, help="min Manhattan start-goal distance (default max(7, k) = 7 for k<=7, so test maps are identical for all k)")
     p.add_argument("--eps_start", type=float, default=1.0)
     p.add_argument("--eps_end", type=float, default=0.01)
     p.add_argument("--eps_decay_frac", type=float, default=0.6, help="fraction of episodes for linear decay")
@@ -27,6 +27,8 @@ def main():
     p.add_argument("--hidden", type=int, default=128)
     p.add_argument("--out", default=None)
     args = vars(p.parse_args())
+    args["gamma"] = DEFAULT_GAMMA  # recorded in config.json; agent discount AND shaping gamma (not a CLI option)
+    args["reward_version"] = "pbrs_v2"  # F = 0.1*(gamma*Phi(s') - Phi(s)), Phi = -d_BFS, Phi(terminal) = 0
     for seed in args["seeds"]:
         cfg = dict(args, seed=seed)
         cfg.pop("seeds")

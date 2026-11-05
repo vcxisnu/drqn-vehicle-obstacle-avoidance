@@ -2,6 +2,8 @@
   plots/exp1_dqn_vs_drqn.png : training success curves (k=5) + held-out success by difficulty
   plots/exp2_obs_size.png    : DRQN (and DQN reference) held-out success vs window size 3/5/7
   plots/density.png          : held-out success vs evaluation obstacle density
+  plots/eval_eps.png         : held-out success under greedy (eps=0) vs epsilon-greedy evaluation (eps=0.01/0.05)
+All bands / error bars are Student-t 95% CIs over seeds (same as the summary tables).
 """
 import argparse, csv, glob, os
 from collections import defaultdict
@@ -9,7 +11,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from aggregate import collect, ci95
+from aggregate import collect, ci95, tcrit
 
 
 def train_curves(runs, agent, k, metric="success", win=100):
@@ -20,7 +22,7 @@ def train_curves(runs, agent, k, metric="success", win=100):
     if not curves:
         return None
     n = min(map(len, curves)); c = np.array([x[:n] for x in curves])
-    m = c.mean(0); s = c.std(0, ddof=1) / np.sqrt(len(c)) * 1.96 if len(c) > 1 else np.zeros(n)
+    m = c.mean(0); s = c.std(0, ddof=1) / np.sqrt(len(c)) * tcrit(len(c)) if len(c) > 1 else np.zeros(n)  # t-CI, matches tables
     return m, s, len(c)
 
 
@@ -28,7 +30,8 @@ def main():
     p = argparse.ArgumentParser(); p.add_argument("--runs", default="runs"); p.add_argument("--out", default="plots")
     p.add_argument("--k", type=int, default=5); p.add_argument("--density", type=float, default=0.2)
     a = p.parse_args(); os.makedirs(a.out, exist_ok=True)
-    rows = collect(a.runs)
+    all_rows = collect(a.runs)
+    rows = [r for r in all_rows if r.get("eval_eps", 0) == 0]  # greedy evaluation = main protocol
     at = lambda r: abs(r["eval_density"] - a.density) < 1e-9 and abs(r["train_density"] - a.density) < 1e-9
     nz = lambda v: 0.0 if v is None or np.isnan(v) else v
 
@@ -91,6 +94,26 @@ def main():
     ax.set(title=f"Held-out success vs density (trained at {a.density})", xlabel="obstacle density",
            ylabel="success rate", ylim=(0, 1)); ax.legend(fontsize=7)
     plt.tight_layout(); plt.savefig(f"{a.out}/density.png", dpi=120); plt.close()
+    # ---- greedy vs epsilon-greedy evaluation
+    er = [r for r in all_rows if r["agent"] != "random" and abs(r["eval_density"] - a.density) < 1e-9
+          and abs(r["train_density"] - a.density) < 1e-9]
+    epss = sorted({r["eval_eps"] for r in er})
+    if len(epss) > 1:
+        cfgs = sorted({(r["agent"], r["obs"]) for r in er})
+        fig, axs = plt.subplots(1, 4, figsize=(16, 4.2), sharey=True)
+        for ax_, (cat, key) in zip(axs, (("overall", "success_rate"), ("easy", "success_easy"),
+                                         ("medium", "success_medium"), ("hard", "success_hard"))):
+            for j, e in enumerate(epss):
+                sel = {(r["agent"], r["obs"]): r for r in er if r["eval_eps"] == e}
+                ms = [nz(sel[c][key]) if c in sel else 0 for c in cfgs]
+                cs = [nz(sel[c][key + "_ci95"]) if c in sel else 0 for c in cfgs]
+                ax_.bar(np.arange(len(cfgs)) + j * 0.8 / len(epss), ms, 0.8 / len(epss), yerr=cs, capsize=3,
+                        label=f"eval eps={e:g}" + (" (greedy)" if e == 0 else ""))
+            ax_.set_xticks(np.arange(len(cfgs)) + 0.4 - 0.4 / len(epss))
+            ax_.set_xticklabels([f"{g} k{k}" for g, k in cfgs], fontsize=8)
+            ax_.set(title=f"{cat} (density {a.density})", ylim=(0, 1))
+        axs[0].set_ylabel("held-out success (mean ± 95% CI)"); axs[0].legend(fontsize=8)
+        plt.tight_layout(); plt.savefig(f"{a.out}/eval_eps.png", dpi=120); plt.close()
     print("saved plots to", a.out)
 
 

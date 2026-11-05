@@ -18,7 +18,11 @@ ACTIONS = np.array([[-1, 0], [1, 0], [0, -1], [0, 1]])
 
 @dataclass
 class RewardConfig:
-    shaping_scale: float = 0.1  # r_shape = scale * (d_BFS(s) - d_BFS(s')); full map used for REWARD ONLY
+    # Potential-based shaping (Ng, Harada & Russell 1999): F = scale * (gamma * Phi(s') - Phi(s)),
+    # Phi(s) = -d_BFS(s, goal) (full map used for the REWARD ONLY, never observed), Phi(terminal) = 0 for BOTH
+    # terminal kinds (goal and collision). gamma MUST equal the agent's discount (passed from the config).
+    # Border bump: s' = s, so F = scale * (gamma - 1) * Phi(s). Timeout is truncation (not terminal): Phi(s') used normally.
+    shaping_scale: float = 0.1
     goal: float = 10.0
     collision: float = -10.0   # moving into an obstacle (episode ends)
     timeout: float = 0.0       # timeout is truncation: no extra penalty (bootstrapped in TD target)
@@ -46,7 +50,7 @@ class GridObstacleEnv(gym.Env):
     metadata = {"render_modes": ["ansi"]}
 
     def __init__(self, size=10, obs_size=5, density=0.2, max_steps=None,
-                 dist_metric="bfs", min_start_goal_dist=None, rewards: RewardConfig = None):
+                 dist_metric="bfs", min_start_goal_dist=None, rewards: RewardConfig = None, gamma=0.99):
         assert size >= 5 and obs_size in (3, 5, 7, 9)
         assert obs_size % 2 == 1
         self.size, self.k, self.density = size, obs_size, density
@@ -56,6 +60,7 @@ class GridObstacleEnv(gym.Env):
         # held-out test maps are IDENTICAL for every method and every window size (map generation does not depend on k).
         self.min_sg = min_start_goal_dist if min_start_goal_dist is not None else max(7, obs_size)
         self.R = rewards or RewardConfig()
+        self.gamma = gamma  # discount used by the potential-based shaping term; must equal the agent's gamma
         self.obs_dim = 2 * obs_size * obs_size + 2
         self.observation_space = spaces.Box(-1.0, 1.0, (self.obs_dim,), np.float32)
         self.action_space = spaces.Discrete(4)
@@ -90,6 +95,10 @@ class GridObstacleEnv(gym.Env):
             return int(self.goal_dist[p])
         return abs(p[0] - self.goal[0]) + abs(p[1] - self.goal[1])
 
+    def _phi(self, p):
+        """Shaping potential Phi(s) = -distance to goal (0 at the goal)."""
+        return -float(self._d(p))
+
     def _obs(self):
         k, h, n = self.k, self.k // 2, self.size
         padded = np.ones((n + 2 * h, n + 2 * h), np.float32)  # out-of-bounds = obstacle
@@ -113,19 +122,22 @@ class GridObstacleEnv(gym.Env):
         r, c = self.pos
         nr, nc = int(r + ACTIONS[action][0]), int(c + ACTIONS[action][1])
         reward, term, outcome = R.step, False, None
+        phi_s = self._phi(self.pos)
         if not (0 <= nr < self.size and 0 <= nc < self.size):
             reward += R.no_move  # bumped the border, stays in place
+            phi_next = phi_s
         elif self.grid[nr, nc] == 1:
             reward += R.collision
             term, outcome = True, "collision"
             self.pos = (nr, nc)
+            phi_next = 0.0  # terminal state: Phi = 0
         else:
-            old = self._d(self.pos)
             self.pos = (nr, nc)
-            reward += R.shaping_scale * (old - self._d(self.pos))  # potential-based: loops sum to 0
+            phi_next = self._phi(self.pos)  # = 0 at the goal (d = 0), consistent with Phi(terminal) = 0
             if self.pos == self.goal:
                 reward += R.goal
                 term, outcome = True, "success"
+        reward += R.shaping_scale * (self.gamma * phi_next - phi_s)  # strictly potential-based
         self.trajectory.append(self.pos)
         trunc = (not term) and self.t >= self.max_steps
         if trunc:

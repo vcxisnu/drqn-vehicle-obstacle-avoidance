@@ -18,5 +18,7 @@
   "learn_start": 1000,
   "hidden": 128,
   "out": "/workspace/thesis/results/runs/random_s10_k5_d0.2/seed4",
+  "gamma": 0.99,
+  "reward_version": "pbrs_v2",
   "seed": 4
 }

@@ -1,0 +1,47 @@
+{
+  "run": "/workspace/thesis/results/runs/drqn_s10_k7_d0.2//seed0",
+  "agent": "drqn",
+  "seed": 0,
+  "size": 10,
+  "obs": 7,
+  "train_density": 0.2,
+  "eval_density": 0.2,
+  "eval_eps": 0.05,
+  "n_maps": 500,
+  "difficulty_bins_shortest_path": [
+    9,
+    11
+  ],
+  "n": 500,
+  "success_rate": 0.842,
+  "collision_rate": 0.138,
+  "timeout_rate": 0.02,
+  "avg_steps_success": 11.833729216152019,
+  "avg_path_ratio_success": 1.1913603743298447,
+  "by_difficulty": {
+    "easy": {
+      "n": 226,
+      "success_rate": 0.9203539823008849,
+      "collision_rate": 0.07079646017699115,
+      "timeout_rate": 0.008849557522123894,
+      "avg_steps_success": 9.783653846153847,
+      "avg_path_ratio_success": 1.2027529761904763
+    },
+    "medium": {
+      "n": 142,
+      "success_rate": 0.8943661971830986,
+      "collision_rate": 0.08450704225352113,
+      "timeout_rate": 0.02112676056338028,
+      "avg_steps_success": 12.338582677165354,
+      "avg_path_ratio_success": 1.1825340014316392
+    },
+    "hard": {
+      "n": 132,
+      "success_rate": 0.6515151515151515,
+      "collision_rate": 0.3106060606060606,
+      "timeout_rate": 0.03787878787878788,
+      "avg_steps_success": 16.046511627906977,
+      "avg_path_ratio_success": 1.1768404693421795
+    }
+  }
+}

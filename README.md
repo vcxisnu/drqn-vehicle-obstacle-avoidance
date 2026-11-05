@@ -1,4 +1,4 @@
-# 记忆增强深度强化学习：部分可观测栅格环境中的车辆避障（第一版代码）
+# 记忆增强深度强化学习：部分可观测栅格环境中的车辆避障（v2：严格势函数塑形，已重新训练）
 
 两个实验：
 - **实验一**：DQN（无记忆）vs DRQN（LSTM 记忆），参数量对齐。
@@ -14,9 +14,16 @@ code/
 ├── common.py            # 构造环境/智能体、加载模型
 ├── train.py             # 训练（支持多种子 --seeds 0 1 2 3 4）
 ├── evaluate.py          # 固定测试集评估 + 简单/中等/困难分组 + 失败轨迹
-├── aggregate.py         # 跨种子汇总：均值 ± 95% 置信区间（t 分布）→ results/summary.csv
-├── plot.py              # 实验一、实验二、密度曲线三张图 → plots/
-└── run_smoke.sh         # 冒烟测试（3 种子、短训练）
+├── evaluate.py --eval_eps  # 可选 ε-贪心评估（默认 0 = 贪心，原协议）
+├── aggregate.py         # 跨种子汇总：均值 ± 95% CI（t 分布）+ 显著性检验（Welch t、两层配对 bootstrap）→ summary.csv/md、significance.csv
+├── plot.py              # 训练曲线（t 分布 CI 阴影）、实验一/二、密度、贪心 vs ε-贪心 → plots/
+├── failure_analysis.py  # 失败案例：互斥单标签 + 位置上下文 + 旧版多标签 → failures/
+├── check_shaping.py     # 势函数塑形的数值检查（值迭代验证策略不变、振荡/撞边界不可刷分）
+├── diag_train_vs_eval.py# 诊断：训练日志成功率 vs 冻结模型评估成功率差异的来源
+├── visualize.py         # Pygame 可视化 / 录制 GIF
+├── run_full.sh          # 完整训练（5 种子 × {DQN k5, DRQN k3/5/7}，10000 回合，8 并行）
+├── run_eval_all.sh      # 完整评估（500 图；贪心 ×3 密度 + ε=0.01/0.05）+ 汇总 + 作图 + 失败分析
+└── run_smoke.sh         # 冒烟测试（2 种子、极短训练，输出到 ./smoke_results，不影响正式结果）
 ```
 
 ## 环境
@@ -26,7 +33,12 @@ code/
 - **状态** = k×k 局部窗口展平（障碍通道，越界视为障碍）+ k×k 目标通道（目标在视野内时为 1）+ 目标偏移 (行偏移, 列偏移)/(N−1)。向量长度 2k²+2。不含全局地图。
   - 注：除障碍外额外加了一个“目标是否在窗口内”的通道；若论文要求严格只用障碍窗口，可在 `_obs()` 中去掉（偏移量已能推出目标位置）。
 - **奖励**（`RewardConfig`）：
-  - 塑形：`0.1 × (d_BFS(s) − d_BFS(s'))`，势函数形式，绕圈总和为 0。BFS 用全局地图，**只用于计算奖励，不进入状态**。
+  - 塑形（**严格势函数形式**，Ng, Harada & Russell 1999）：`F = 0.1 × (γ·Φ(s') − Φ(s))`，`Φ(s) = −d_BFS(s, goal)`，**γ = 0.99 与智能体折扣相同**（由 config 传入环境，`common.DEFAULT_GAMMA`）。BFS 用全局地图，**只用于计算奖励，不进入状态**。
+    - 终止状态势函数取 0：到达目标时 d=0 本来就是 0；**撞障碍终止时也取 Φ(s')=0**（回合制任务中保证最优策略不变的标准做法），因此碰撞步的塑形项为 `+0.1·d_BFS(s)`，碰撞总奖励仍 ≤ −8 左右，远差于继续找路。
+    - 撞边界原地不动：s'=s，塑形项为 `0.1·(γ−1)·Φ(s) = 0.001·d_BFS(s)`（很小的正数），被 −0.2 主导。
+    - 超时是截断而非终止：截断那一步按正常的 Φ(s') 计算，TD 目标照常自举，与塑形一致。
+    - v1（旧版）用的是 `0.1 × (d(s) − d(s'))`，即 γ=1 的势差，而智能体 γ=0.99，二者不一致；v2 已修正并**用完全相同的配置重新训练**（旧结果保存在 `/workspace/thesis/results_v1_gamma1/`，未放进仓库）。
+    - 数值检查 `python3 check_shaping.py`：200 张地图的值迭代中 `Q*_shaped = Q*_orig − 0.1·Φ` 误差 1e-14，最优动作集合 0 处不同；两格振荡的折扣回报 ≈ 0、撞边界 ≈ −20，直接去目标 ≈ +10，**不可刷分**。（注：未折扣地看，离目标很远（d≥10）时两格振荡每步塑形平均略大于 0，但其折扣总和有上界 −0.1·Φ(s₀)，与到达目标所得的塑形相同，不改变最优策略。）
   - 到达 +10；撞障碍 −10（terminated）；撞边界原地不动 −0.2；每步 −0.01。
   - 超时（默认 8N 步）：**truncated，无额外惩罚**，TD 目标照常自举。环境返回分开的 terminated/truncated，经验回放中也分开存储，只有 terminated 截断自举。
 - **固定测试集**：第 i 张测试图由种子 `10_000_000 + i` 生成，所有方法/种子/窗口共用；训练不使用该范围。
@@ -40,29 +52,65 @@ code/
 
 ## 运行
 ```bash
-pip install -r requirements.txt
-# 实验一（建议正式实验 ≥5 种子、更多回合）
-python3 train.py --agent dqn  --obs 5 --episodes 20000 --seeds 0 1 2 3 4
-python3 train.py --agent drqn --obs 5 --episodes 20000 --seeds 0 1 2 3 4
+pip install -r requirements.txt     # 版本已固定（Python 3.13.5，CPU）
+R=/workspace/thesis/results
+# 实验一（正式设置：10000 回合、5 种子）
+python3 train.py --agent dqn  --obs 5 --episodes 10000 --seeds 0 1 2 3 4 --out $R/runs/dqn_s10_k5_d0.2
+python3 train.py --agent drqn --obs 5 --episodes 10000 --seeds 0 1 2 3 4 --out $R/runs/drqn_s10_k5_d0.2
 # 实验二
-for k in 3 5 7; do python3 train.py --agent drqn --obs $k --episodes 20000 --seeds 0 1 2 3 4; done
-# 评估（--run 可以是某个配置目录，自动遍历 seed*/）；--density 用于按密度分难度
-python3 evaluate.py --run runs/drqn_s10_k5_d0.2 --n_maps 300
-python3 evaluate.py --run runs/drqn_s10_k5_d0.2 --n_maps 300 --density 0.3
-# 汇总 + 作图
-python3 aggregate.py --runs runs --out results/summary.csv
-python3 plot.py --runs runs --out plots
-# 一键冒烟测试
+for k in 3 5 7; do python3 train.py --agent drqn --obs $k --episodes 10000 --seeds 0 1 2 3 4 --out $R/runs/drqn_s10_k${k}_d0.2; done
+# 评估（--run 可以是某个配置目录，自动遍历 seed*/）；固定测试集 500 张图
+python3 evaluate.py --run $R/runs/drqn_s10_k5_d0.2 --n_maps 500                     # 贪心（主协议）
+python3 evaluate.py --run $R/runs/drqn_s10_k5_d0.2 --n_maps 500 --density 0.3       # 换评估密度
+python3 evaluate.py --run $R/runs/drqn_s10_k5_d0.2 --n_maps 500 --eval_eps 0.01     # ε-贪心评估
+# 汇总（CI + 显著性）+ 作图 + 失败分析
+python3 aggregate.py --runs $R/runs --out $R/summary.csv
+python3 plot.py --runs $R/runs --out $R/plots
+python3 failure_analysis.py --runs $R/runs --out $R/failures                      # 贪心
+python3 failure_analysis.py --runs $R/runs --out $R/failures --eval_eps 0.01      # ε-贪心
+# 一键冒烟测试（输出到 ./smoke_results）
 ./run_smoke.sh
 ```
-输出：`runs/<配置>/seed<n>/` 下有 `config.json`、`train_log.csv`、模型、`eval_d<密度>.json`、`episodes_d<密度>.csv`（每张测试图的结果与难度）、`failures_d<密度>.json`（最多 50 个失败回合：地图、起终点、轨迹、corridor_score）。
+`--eval_eps e`：评估时以概率 e 执行均匀随机动作；DRQN 仍把每一步观测送入 LSTM（记忆不受影响）。默认 e=0，与原来的贪心评估完全一致；e>0 的输出文件带后缀，如 `eval_d0.2_eps0.01.json`、`episodes_d0.2_eps0.01.csv`、`failures_d0.2_eps0.01.json`，与贪心结果并存。
+
+输出：`runs/<配置>/seed<n>/` 下有 `config.json`（含 `gamma`、`reward_version`）、`train_log.csv`、模型、`eval_d<密度>[_eps<e>].json`、`episodes_d<密度>[_eps<e>].csv`（每张测试图的结果与难度）、`failures_d<密度>[_eps<e>].json`（全部失败回合：地图、起终点、轨迹）。
 
 ## 完整实验
 ```bash
-EP=10000 nohup ./run_full.sh > ../results_full_nohup.log 2>&1 &   # 训练
-N=500 ./run_eval_all.sh                                          # 评估 + 汇总 + 作图 + 失败分析
+EP=10000 nohup ./run_full.sh > /workspace/thesis/results/logs/run_full_nohup.log 2>&1 &   # 训练，8 核约 16 分钟
+N=500 ./run_eval_all.sh     # 评估（贪心 ×3 密度 + ε=0.01/0.05）+ 汇总 + 作图 + 失败分析，约 1.5 分钟
 ```
-输出在 `/workspace/thesis/results/`：`summary.csv / summary.md`（均值 ± 95% CI）、`plots/`（exp1/exp2 训练曲线、难度柱状图、窗口大小曲线、密度曲线）、`failures/`（分类统计 `failure_summary.csv` 和轨迹图）。
+输出在 `/workspace/thesis/results/`：`summary.csv / summary.md`（均值 ± 95% CI；贪心表、贪心 vs ε-贪心表、显著性检验表）、`significance.csv`、`diag_train_vs_eval.csv`、`plots/`（exp1/exp2 训练曲线、难度柱状图、窗口大小曲线、密度曲线、`eval_eps.png`）、`failures/`（`failure_summary.csv`、`failure_summary_eps0.01.csv`、`failure_summary_eps0.05.csv` 和轨迹图）。
+
+### 统计方法
+- 表中 CI：5 个种子的成功率均值 ± t₀.₉₇₅,₄·s/√5；训练曲线阴影用同一 t 分布 CI。
+- 显著性（`aggregate.py`）：比较 DQN k5 vs DRQN k5、DRQN k3 vs k5、k5 vs k7、k3 vs k7，整体及简单/中等/困难各组：
+  - Welch t 检验（每种子成功率，n=5 vs 5）；
+  - 两层配对 bootstrap：所有配置共用同一 500 张测试图，每次重采样地图（两配置用同一组地图下标 → 配对）并各自重采样种子，10,000 次，给出成功率差的 95% CI 和双侧 p 值；
+  - 同一配置 ε-贪心 vs 贪心：同一批模型，用配对 t 检验，bootstrap 中种子也配对。
+
+### 失败标签（`failure_analysis.py`，互斥单标签，按优先级取第一个命中的）
+“尾段”= 轨迹最后 min(40, T/2) 步（超时为最后 40 步）。
+1. `collision` 撞障碍；2. `border_bump_stuck` 尾段 ≥80% 步原地不动（反复撞边界）；3. `dead_end_stuck` 最后 20 个位置全在死胡同口袋内（死胡同格及通向它的 1 格宽通道，直到第一个岔口）；4. `two_cell_osc` 尾段 ≥80% 步满足 pos[t]=pos[t−2]（两格来回）；5. `long_cycle` 尾段对某个周期 L∈[3,8] ≥80% 周期，或尾段内某格被访问 ≥3 次；6. `narrow_corridor` 尾段 ≥50% 位于狭窄格（≥2 个邻居被挡）；7. `u_trap` 轨迹中离目标曼哈顿最近的点，其 BFS 距离 ≥ 2×曼哈顿 + 2（目标在墙后，阈值沿用 v1，属经验阈值）；8. `dead_end_exited` 进过死胡同口袋又出来了；9. `other_timeout`。
+- 另给出超时的**位置上下文**（同样互斥）：`ctx_dead_end` > `ctx_u_trap` > `ctx_narrow_corridor` > `ctx_open`；以及 `info_timeouts_strictly_periodic_pct`（尾段严格周期的超时比例）。
+- 为透明起见仍输出 v1 的宽泛多标签（`oldtag_*`，可重叠）。
+
+## 主要结果（10×10，密度 0.2，500 张固定测试图，5 种子，均值 ± 95% CI）
+| 配置 | 贪心成功率 | ε=0.01 成功率 | 简单 | 中等 | 困难（贪心） |
+|---|---|---|---|---|---|
+| DQN k5 | 0.689 ± 0.078 | 0.698 ± 0.068 | 0.797 ± 0.057 | 0.690 ± 0.085 | 0.502 ± 0.123 |
+| DRQN k3 | 0.875 ± 0.019 | 0.863 ± 0.021 | 0.958 ± 0.021 | 0.907 ± 0.022 | 0.700 ± 0.026 |
+| DRQN k5 | 0.926 ± 0.014 | 0.914 ± 0.021 | 0.976 ± 0.013 | 0.970 ± 0.016 | 0.791 ± 0.034 |
+| DRQN k7 | 0.916 ± 0.014 | 0.907 ± 0.016 | 0.966 ± 0.022 | 0.955 ± 0.018 | 0.789 ± 0.050 |
+
+DRQN k5 − DQN k5 = +0.237（Welch p=0.0009，bootstrap 95% CI [+0.176, +0.290]）；k5 vs k3 显著；**k5 vs k7 不显著**（差 +0.009，p=0.24，CI [−0.011, +0.030]）。完整表格见 `results/summary.md`。
+
+### 为什么要做 ε-贪心评估？
+无记忆的确定性策略在**感知混叠**（不同位置看到相同的局部观测）下，会在同样的观测上永远做同样的动作，于是陷入确定性循环（最常见的是两格来回）。Singh, Jaakkola & Jordan（1994）指出，在 POMDP 中**随机的无记忆策略可以优于任何确定性无记忆策略**；少量随机性可以打破循环。DRQN 的循环状态能区分“看起来一样”的位置，因此加不加随机性几乎没有影响。
+实测（新结果）：
+- DQN 贪心失败中 **100%** 的超时尾段是严格周期循环，其中两格来回占失败的 90.7%；ε=0.01 / 0.05 时 DQN 超时率 0.311 → 0.244 → 0.114，确实打破了循环；但随机动作会撞障碍（碰撞率 0 → 0.058 → 0.172），**净成功率只从 0.689 升到 0.698 / 0.713（不显著，配对 t p=0.26 / 0.11）**。
+- DRQN 在 ε=0.01 时只下降约 0.01（k5：0.926 → 0.914），ε=0.05 时显著下降（−0.07，主要是随机动作造成的碰撞）。
+- 训练日志中 DQN 最后 1000 回合（ε=0.01）成功率 0.82–0.87（旧版 0.81–0.85），远高于冻结模型在测试集上的贪心成功率 0.63–0.79（旧版 0.46–0.64）。`diag_train_vs_eval.py` 表明这**主要不是 1% 随机动作造成的**：冻结模型 ε=0.01 只有 0.700 ± 0.080，而在同样地图上**继续在线更新**（权重每 4 步变化一次，策略在回合内是非平稳的）就达到 0.835 ± 0.014；DRQN 三种情况都约 0.90–0.92。即：训练期的高成功率来自“边学边变”的策略打破了确定性循环，而不是 ε 本身。
 
 ## 可视化（Pygame）
 ```bash
@@ -78,8 +126,14 @@ python3 visualize.py --record ../results/demo_drqn_5x5.gif --episodes 4 --need_s
 - 按最短路径长度：简单 ≤9，中等 10–11，困难 ≥12（`--bins 9 11`，约为 10×10、密度 0.2 测试集的三分位数；换地图尺寸要重新设定）。
 - 按障碍密度：用 `--density 0.1/0.2/0.3` 分别评估（`plots/density.png`）。
 
-## 下一步
-1. 正式实验：≥5 种子、更长训练；必要时调奖励系数、lr、序列长度。
-2. 扩展到 15×15、20×20（需要重新设定 `--bins` 和最大步数）。
-3. 失败案例分析：可视化 `failures_*.json`，统计狭窄通道（`corridor_score`）、死胡同、来回振荡。
-4. 可选消融：去掉目标偏移输入、DQN+帧堆叠。
+## 与经典规划方法的关系：A* 与 D* Lite
+- **A\*** 在地图**完全已知**时能给出最短路径；本任务中智能体只看到 k×k 局部窗口，A* 不能直接使用。
+- 但这**不能**作为“必须用深度强化学习”的论据：**D\* Lite**（Koenig & Likhachev, 2002）等增量重规划算法正是为**部分已知地图**设计的——把未知区域假设为可通行，边走边把观测到的障碍写入地图，并以增量方式高效重算最短路径。在本文这种静态栅格、观测无噪声的设定下，D* Lite 完全可以完成任务，而且有完备性保证。因此 README 与论文中“A* 需要完整地图，所以用 DRL”的说法应弱化。
+- 本文中 DRL 的价值定位是：通过**试错**学到一个**反应式策略**（观测/记忆 → 动作），**不需要规划器，也不需要显式维护地图**；每回合随机地图和起终点，防止策略“背地图”，迫使它学到可泛化的避障规则。研究问题是“学习式策略在部分可观测下能否借助记忆（LSTM）弥补局部观测的不足”，而不是声称经典规划做不到。
+- 若时间允许，可在相关工作或讨论中把 D* Lite 作为“有地图记忆的规划上界”加以讨论（本项目不新增实验）。
+
+## 尚未完成 / 下一步
+1. 只训练了 10×10（选题说明为 10–20）：15×15、20×20 需重新设定 `--bins` 和最大步数后再训练。
+2. 可选：更多种子（10 个）；DQN + 帧堆叠消融；窗口单独的“边界外”通道（目前边界外按障碍处理）。
+3. 工程项：DRQN burn-in 段改为 no_grad（与 R2D2 一致）；训练中地图生成与动作探索的随机数流分离。
+4. 以上均会改变训练逻辑或实验设计，本版未做。

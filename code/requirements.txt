@@ -1,5 +1,8 @@
-torch>=2.0
-gymnasium>=0.29
-numpy
-matplotlib
-scipy
+# Pinned to the versions used for the thesis experiments (Python 3.13.5, CPU-only)
+torch==2.15.0
+gymnasium==1.4.0
+numpy==2.5.4
+scipy==1.18.1
+matplotlib==3.11.2
+pygame==2.6.1   # visualize.py (headless rendering)
+pillow==13.0.0  # visualize.py (GIF export)

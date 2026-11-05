@@ -4,6 +4,7 @@ from agents.tabular import TabularQAgent
 from agents.deep import DQNAgent, DRQNAgent
 
 AGENTS = ["tabular", "dqn", "drqn", "random"]
+DEFAULT_GAMMA = 0.99  # agent discount; the env's potential-based shaping uses the SAME value
 
 
 class RandomAgent:
@@ -21,12 +22,13 @@ class RandomAgent:
 
 def make_env(cfg):
     return GridObstacleEnv(size=cfg["size"], obs_size=cfg["obs"], density=cfg["density"],
-                           max_steps=cfg.get("max_steps"), min_start_goal_dist=cfg.get("min_dist"))
+                           max_steps=cfg.get("max_steps"), min_start_goal_dist=cfg.get("min_dist"),
+                           gamma=cfg.get("gamma", DEFAULT_GAMMA))
 
 
 def make_agent(cfg, obs_dim):
     a, k = cfg["agent"], cfg["obs"]
-    hp = dict(lr=cfg.get("lr", 5e-4), gamma=cfg.get("gamma", 0.99), batch_size=cfg.get("batch_size", 32),
+    hp = dict(lr=cfg.get("lr", 5e-4), gamma=cfg.get("gamma", DEFAULT_GAMMA), batch_size=cfg.get("batch_size", 32),
               target_update=cfg.get("target_update", 1000), learn_start=cfg.get("learn_start", 1000),
               train_every=cfg.get("train_every", 4), hidden=cfg.get("hidden", 128))
     if a == "random":
