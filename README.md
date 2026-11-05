@@ -43,7 +43,7 @@ code/
     - 势函数定理（Ng 1999）针对 MDP。本设定下对任意历史依赖策略，期望回报的平移量为 `−0.1·E[Φ(s₀)]`（与策略无关）加 `0.1·E[γ^T Φ(s_T)]`；后者在终止时为 0，**在截断（超时）时依赖策略**（γ^80≈0.45，|Φ|≤约 20，偏差上限约 0.9）。只有把超时当作 bootstrap 的无限时域问题（本实现），不变性才严格成立；论文中应写出这一推理。
     - 撞边界原地不动：s'=s，塑形项为 `0.1·(γ−1)·Φ(s) = 0.001·d_BFS(s)`（很小的正数），被 −0.2 主导。
     - 超时是截断而非终止：截断那一步按正常的 Φ(s') 计算，TD 目标照常自举，与塑形一致。
-    - v1（旧版）用的是 `0.1 × (d(s) − d(s'))`，即 γ=1 的势差，而智能体 γ=0.99，二者不一致；v2 已修正并**用完全相同的配置重新训练**（旧结果保存在 `/workspace/thesis/results_v1_gamma1/`，未放进仓库）。
+    - v1（旧版）用的是 `0.1 × (d(s) − d(s'))`，即 γ=1 的势差，而智能体 γ=0.99，二者不一致；v2 已修正并**用完全相同的配置重新训练**（旧结果未放进仓库）。
     - 数值检查 `python3 check_shaping.py`：200 张地图的值迭代中 `Q*_shaped = Q*_orig − 0.1·Φ` 误差 1e-14，最优动作集合 0 处不同；两格振荡的折扣回报 ≈ 0、撞边界 ≈ −20，直接去目标 ≈ +10，**不可刷分**。（注：未折扣地看，离目标很远（d≥10）时两格振荡每步塑形平均略大于 0，但其折扣总和有上界 −0.1·Φ(s₀)，与到达目标所得的塑形相同，不改变最优策略。）
   - 到达 +10；撞障碍 −10（terminated）；撞边界原地不动 −0.2；每步 −0.01。
   - 超时（默认 8N 步）：**truncated，无额外惩罚**，TD 目标照常自举。环境返回分开的 terminated/truncated，经验回放中也分开存储，只有 terminated 截断自举。
@@ -166,7 +166,7 @@ python3 visualize.py --record ../results/demo_drqn_5x5.gif --episodes 4 --need_s
 ## v3 变更（审计后，训练逻辑与 v2 结果不变）
 - `aggregate.py`：主假设族 Holm 校正（`family`、`holm_p` 列）；`welch_t/welch_p` 列改名 `t_stat/t_p`（配对 t 时同列）；“不显著”改为“未检出差异”。
 - `evaluate.py`：每张图新增 `manhattan`、`detour_ratio` 列；`detour_analysis.py` 对旧的评估文件会按种子重新生成地图取得同样信息。
-- DQN 回放改为 O(1) 环形缓冲（原 `random.sample(deque)` 为 O(n)）；采样 RNG 改用 numpy——重新训练 DQN 的结果与 v2 在统计上一致但非逐位相同（已训练模型与评估结果未动）。`DRQNAgent.sample_batch()` 从 `update()` 中拆出以便测试，逻辑不变。
+- DQN 回放保持 v2：`deque` + `random.sample`（无放回，Python `random` RNG），与已提交模型/结果一致。`DRQNAgent.sample_batch()` 从 `update()` 中拆出以便测试，逻辑不变。
 - 删除 `_obs_safe` 别名；`tabular.py` 保留但未维护（`done` 参数不区分 terminated/truncated）。
 - 所有脚本与 Python 默认路径改为相对仓库根目录；`project-brief*.md`、`brief-audit.md` 移到 `docs/`。
 - `tests/`：`python3 -m pytest tests -q`。

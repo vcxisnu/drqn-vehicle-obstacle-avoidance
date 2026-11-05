@@ -37,7 +37,7 @@ code/
     - 终止状态势函数取 0：到达目标时 d=0 本来就是 0；**撞障碍终止时也取 Φ(s')=0**（回合制任务中保证最优策略不变的标准做法），因此碰撞步的塑形项为 `+0.1·d_BFS(s)`，碰撞总奖励仍 ≤ −8 左右，远差于继续找路。
     - 撞边界原地不动：s'=s，塑形项为 `0.1·(γ−1)·Φ(s) = 0.001·d_BFS(s)`（很小的正数），被 −0.2 主导。
     - 超时是截断而非终止：截断那一步按正常的 Φ(s') 计算，TD 目标照常自举，与塑形一致。
-    - v1（旧版）用的是 `0.1 × (d(s) − d(s'))`，即 γ=1 的势差，而智能体 γ=0.99，二者不一致；v2 已修正并**用完全相同的配置重新训练**（旧结果保存在 `/workspace/thesis/results_v1_gamma1/`，未放进仓库）。
+    - v1（旧版）用的是 `0.1 × (d(s) − d(s'))`，即 γ=1 的势差，而智能体 γ=0.99，二者不一致；v2 已修正并**用完全相同的配置重新训练**（旧结果未放进仓库）。
     - 数值检查 `python3 check_shaping.py`：200 张地图的值迭代中 `Q*_shaped = Q*_orig − 0.1·Φ` 误差 1e-14，最优动作集合 0 处不同；两格振荡的折扣回报 ≈ 0、撞边界 ≈ −20，直接去目标 ≈ +10，**不可刷分**。（注：未折扣地看，离目标很远（d≥10）时两格振荡每步塑形平均略大于 0，但其折扣总和有上界 −0.1·Φ(s₀)，与到达目标所得的塑形相同，不改变最优策略。）
   - 到达 +10；撞障碍 −10（terminated）；撞边界原地不动 −0.2；每步 −0.01。
   - 超时（默认 8N 步）：**truncated，无额外惩罚**，TD 目标照常自举。环境返回分开的 terminated/truncated，经验回放中也分开存储，只有 terminated 截断自举。
@@ -53,7 +53,7 @@ code/
 ## 运行
 ```bash
 pip install -r requirements.txt     # 版本已固定（Python 3.13.5，CPU）
-R=/workspace/thesis/results
+R=../results
 # 实验一（正式设置：10000 回合、5 种子）
 python3 train.py --agent dqn  --obs 5 --episodes 10000 --seeds 0 1 2 3 4 --out $R/runs/dqn_s10_k5_d0.2
 python3 train.py --agent drqn --obs 5 --episodes 10000 --seeds 0 1 2 3 4 --out $R/runs/drqn_s10_k5_d0.2
@@ -77,10 +77,10 @@ python3 failure_analysis.py --runs $R/runs --out $R/failures --eval_eps 0.01    
 
 ## 完整实验
 ```bash
-EP=10000 nohup ./run_full.sh > /workspace/thesis/results/logs/run_full_nohup.log 2>&1 &   # 训练，8 核约 16 分钟
+EP=10000 nohup ./run_full.sh > ../results/logs/run_full_nohup.log 2>&1 &   # 训练，8 核约 16 分钟
 N=500 ./run_eval_all.sh     # 评估（贪心 ×3 密度 + ε=0.01/0.05）+ 汇总 + 作图 + 失败分析，约 1.5 分钟
 ```
-输出在 `/workspace/thesis/results/`：`summary.csv / summary.md`（均值 ± 95% CI；贪心表、贪心 vs ε-贪心表、显著性检验表）、`significance.csv`、`diag_train_vs_eval.csv`、`plots/`（exp1/exp2 训练曲线、难度柱状图、窗口大小曲线、密度曲线、`eval_eps.png`）、`failures/`（`failure_summary.csv`、`failure_summary_eps0.01.csv`、`failure_summary_eps0.05.csv` 和轨迹图）。
+输出在 `results/`：`summary.csv / summary.md`（均值 ± 95% CI；贪心表、贪心 vs ε-贪心表、显著性检验表）、`significance.csv`、`diag_train_vs_eval.csv`、`plots/`（exp1/exp2 训练曲线、难度柱状图、窗口大小曲线、密度曲线、`eval_eps.png`）、`failures/`（`failure_summary.csv`、`failure_summary_eps0.01.csv`、`failure_summary_eps0.05.csv` 和轨迹图）。
 
 ### 统计方法
 - 表中 CI：5 个种子的成功率均值 ± t₀.₉₇₅,₄·s/√5；训练曲线阴影用同一 t 分布 CI。

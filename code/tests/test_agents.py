@@ -37,7 +37,8 @@ def test_parameter_matching():
 
 @pytest.mark.parametrize("agent", ["dqn", "drqn"])
 def test_train_eval_round_trip(tmp_path, agent):
-    cfg = dict(agent=agent, size=10, obs=3, density=0.2, seed=0, learn_start=10)
+    # batch_size <= learn_start so DQN random.sample(deque) (no replacement) has enough transitions
+    cfg = dict(agent=agent, size=10, obs=3, density=0.2, seed=0, learn_start=10, batch_size=8)
     env = make_env(cfg); env.reset(seed=0); ag = make_agent(cfg, env.obs_dim); rng = np.random.default_rng(0)
     step = 0
     for _ in range(3):

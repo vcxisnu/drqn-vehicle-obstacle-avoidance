@@ -87,33 +87,13 @@ class _DeepBase:
         self.tgt.load_state_dict(self.net.state_dict())
 
 
-class RingBuffer:
-    """Fixed-size uniform transition replay (O(1) sampling; a deque needs O(n) random indexing)."""
-
-    def __init__(self, capacity):
-        self.capacity, self.data, self.pos = capacity, [], 0
-
-    def append(self, item):
-        if len(self.data) < self.capacity:
-            self.data.append(item)
-        else:
-            self.data[self.pos] = item
-        self.pos = (self.pos + 1) % self.capacity
-
-    def sample(self, n):
-        return [self.data[i] for i in np.random.randint(len(self.data), size=n)]
-
-    def __len__(self):
-        return len(self.data)
-
-
 class DQNAgent(_DeepBase):
     recurrent = False
 
     def __init__(self, obs_dim, k, **kw):
         kw.pop("core", None)
         super().__init__(obs_dim, k, core=None, **kw)
-        self.buf = RingBuffer(self.buffer_size)
+        self.buf = deque(maxlen=self.buffer_size)
 
     def reset_state(self):
         pass
@@ -134,7 +114,7 @@ class DQNAgent(_DeepBase):
         pass
 
     def update(self):
-        batch = self.buf.sample(self.bs)
+        batch = random.sample(self.buf, self.bs)
         o, a, r, o2, d, _tr = (torch.as_tensor(np.array(x), device=self.device) for x in zip(*batch))
         q = self.net(o)[0].gather(1, a.long()[:, None]).squeeze(1)
         with torch.no_grad():
