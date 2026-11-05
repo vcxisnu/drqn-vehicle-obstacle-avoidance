@@ -93,7 +93,7 @@ if __name__ == "__main__":
     p.add_argument("--size", type=int, default=None,
                    help="evaluate on N x N maps (zero-shot size transfer; default = training size from config.json)")
     p.add_argument("--out", default=None,
-                   help="output root for --size runs (default <results>/runs/N<size>); files go to <out>/<config>/seed<s>/")
+                   help="output root (default for --size runs: <results>/runs/N<size>; also usable without --size, e.g. results/runs_trained_eval/N15); files go to <out>/<config>/seed<s>/")
     a = p.parse_args()
     torch.set_num_threads(1)
     dirs = [a.run] if os.path.exists(os.path.join(a.run, "config.json")) else sorted(glob.glob(os.path.join(a.run, "seed*")))

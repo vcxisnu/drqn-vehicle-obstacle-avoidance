@@ -71,3 +71,23 @@ def test_size_transfer_eval_writes_to_separate_dir(tmp_path):
     assert sorted(os.listdir(rd)) == before
     assert r["eval_size"] == 15 and r["eval_max_steps"] == 120 and r["size"] == 10
     assert {"eval_d0.2_eps0.01.json", "episodes_d0.2_eps0.01.csv", "source.json"} <= set(os.listdir(od))
+
+
+def test_train_size_option_and_same_size_eval(tmp_path):
+    """train.py --N 15 trains on 15x15 (config size 15, max_steps 8N=120); evaluate(out_dir=...) at the training size
+    writes to the separate dir without eval_size fields (no transfer), leaving the run dir untouched."""
+    import os, subprocess, sys
+    from evaluate import evaluate
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    out = tmp_path / "runs_trained" / "N15" / "random_s15_k5_d0.2"
+    subprocess.run([sys.executable, "train.py", "--agent", "random", "--N", "15", "--obs", "5", "--episodes", "1",
+                    "--seeds", "0", "--out", str(out)], cwd=here, check=True, capture_output=True)
+    rd = out / "seed0"
+    cfg = json.load(open(rd / "config.json"))
+    assert cfg["size"] == 15 and make_env(cfg).max_steps == 120
+    before = sorted(os.listdir(rd))
+    od = tmp_path / "runs_trained_eval" / "N15" / "random_s15_k5_d0.2" / "seed0"
+    r = evaluate(str(rd), n_maps=3, out_dir=str(od))
+    assert sorted(os.listdir(rd)) == before
+    assert r["size"] == 15 and "eval_size" not in r
+    assert {"eval_d0.2.json", "episodes_d0.2.csv", "source.json"} <= set(os.listdir(od))

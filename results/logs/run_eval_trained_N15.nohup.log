@@ -1,0 +1,37 @@
+dqn     k=5 eval_d=0.2 eps=0 seeds=5 succ=0.615±0.059 | easy=0.804±0.067 med=0.710±0.074 hard=0.522±0.073
+dqn     k=5 eval_d=0.2 eps=0.01 seeds=5 succ=0.642±0.060 | easy=0.831±0.047 med=0.726±0.074 hard=0.552±0.073
+drqn    k=3 eval_d=0.2 eps=0 seeds=5 succ=0.811±0.012 | easy=0.958±0.015 med=0.881±0.031 hard=0.739±0.017
+drqn    k=3 eval_d=0.2 eps=0.01 seeds=5 succ=0.801±0.014 | easy=0.947±0.025 med=0.874±0.043 hard=0.730±0.019
+drqn    k=5 eval_d=0.2 eps=0 seeds=5 succ=0.879±0.018 | easy=0.976±0.022 med=0.940±0.040 hard=0.828±0.025
+drqn    k=5 eval_d=0.2 eps=0.01 seeds=5 succ=0.872±0.012 | easy=0.978±0.017 med=0.931±0.041 hard=0.818±0.020
+drqn    k=7 eval_d=0.2 eps=0 seeds=5 succ=0.867±0.013 | easy=0.965±0.015 med=0.924±0.013 hard=0.817±0.018
+drqn    k=7 eval_d=0.2 eps=0.01 seeds=5 succ=0.862±0.009 | easy=0.952±0.019 med=0.912±0.013 hard=0.817±0.013
+eps=0.0 dqn_k5 vs drqn_k5 [primary]: diff=-0.264 t_p=0.0001 holm_p=0.000201 boot CI=[-0.313,-0.219] boot_p=0
+eps=0.0 drqn_k3 vs drqn_k5 [primary]: diff=-0.068 t_p=5.64e-05 holm_p=0.000169 boot CI=[-0.095,-0.043] boot_p=0
+eps=0.0 drqn_k5 vs drqn_k7 [primary]: diff=+0.012 t_p=0.178 holm_p=0.178 boot CI=[-0.012,+0.036] boot_p=0.321
+eps=0.0 drqn_k3 vs drqn_k7 [primary]: diff=-0.056 t_p=2.15e-05 holm_p=8.62e-05 boot CI=[-0.083,-0.031] boot_p=0
+eps=0.01 dqn_k5 vs drqn_k5 [exploratory]: diff=-0.230 t_p=0.000319 holm_p=nan boot CI=[-0.278,-0.185] boot_p=0
+eps=0.01 drqn_k3 vs drqn_k5 [exploratory]: diff=-0.070 t_p=7.08e-06 holm_p=nan boot CI=[-0.096,-0.044] boot_p=0
+eps=0.01 drqn_k5 vs drqn_k7 [exploratory]: diff=+0.009 t_p=0.14 holm_p=nan boot CI=[-0.013,+0.032] boot_p=0.416
+eps=0.01 drqn_k3 vs drqn_k7 [exploratory]: diff=-0.061 t_p=2.2e-05 holm_p=nan boot CI=[-0.088,-0.035] boot_p=0
+eps=0.01 vs 0 dqn_k5 vs dqn_k5 [exploratory]: diff=+0.027 t_p=0.000327 holm_p=nan boot CI=[+0.014,+0.041] boot_p=0
+eps=0.01 vs 0 drqn_k3 vs drqn_k3 [exploratory]: diff=-0.010 t_p=0.0898 holm_p=nan boot CI=[-0.023,+0.004] boot_p=0.156
+eps=0.01 vs 0 drqn_k5 vs drqn_k5 [exploratory]: diff=-0.008 t_p=0.0487 holm_p=nan boot CI=[-0.018,+0.003] boot_p=0.153
+eps=0.01 vs 0 drqn_k7 vs drqn_k7 [exploratory]: diff=-0.005 t_p=0.266 holm_p=nan boot CI=[-0.016,+0.007] boot_p=0.401
+saved /workspace/drqn-repo/results/summary_trained_N15.csv .md and /workspace/drqn-repo/results/significance_trained_N15.csv
+dqn_s15_k5_d0.2 =1.0 (straight)=0.739 (1.0, 1.25]=0.486 (1.25, 1.5]=0.302 >1.5=0.193
+drqn_s15_k3_d0.2 =1.0 (straight)=0.927 (1.0, 1.25]=0.686 (1.25, 1.5]=0.588 >1.5=0.307
+drqn_s15_k5_d0.2 =1.0 (straight)=0.956 (1.0, 1.25]=0.829 (1.25, 1.5]=0.718 >1.5=0.460
+drqn_s15_k7_d0.2 =1.0 (straight)=0.947 (1.0, 1.25]=0.844 (1.25, 1.5]=0.702 >1.5=0.340
+saved /workspace/drqn-repo/results/trained/N15/detour
+dqn_s15_k5_d0.2 eps=0 fail=962/2500 {'border_bump_stuck': 1.5, 'dead_end_stuck': 0.9, 'two_cell_osc': 95.5, 'long_cycle': 2.1} periodic% 100.0 {'ctx_dead_end': 5.2, 'ctx_u_trap': 10.4, 'ctx_narrow_corridor': 22.3, 'ctx_open': 62.1}
+drqn_s15_k3_d0.2 eps=0 fail=473/2500 {'collision': 0.6, 'border_bump_stuck': 0.6, 'dead_end_stuck': 3.0, 'two_cell_osc': 23.9, 'long_cycle': 71.9} periodic% 65.5 {'ctx_dead_end': 8.5, 'ctx_u_trap': 39.1, 'ctx_narrow_corridor': 22.8, 'ctx_open': 29.6}
+drqn_s15_k5_d0.2 eps=0 fail=302/2500 {'border_bump_stuck': 2.6, 'dead_end_stuck': 2.6, 'two_cell_osc': 43.7, 'long_cycle': 51.0} periodic% 84.1 {'ctx_dead_end': 12.3, 'ctx_u_trap': 42.7, 'ctx_narrow_corridor': 12.6, 'ctx_open': 32.5}
+drqn_s15_k7_d0.2 eps=0 fail=332/2500 {'border_bump_stuck': 0.3, 'dead_end_stuck': 3.3, 'two_cell_osc': 44.3, 'long_cycle': 52.1} periodic% 84.6 {'ctx_dead_end': 8.4, 'ctx_u_trap': 41.6, 'ctx_narrow_corridor': 16.9, 'ctx_open': 33.1}
+saved /workspace/drqn-repo/results/trained/N15/failures/failure_summary.csv
+dqn_s15_k5_d0.2 eps=0.01 fail=895/2500 {'collision': 22.8, 'border_bump_stuck': 1.6, 'dead_end_stuck': 0.6, 'two_cell_osc': 72.7, 'long_cycle': 2.3} periodic% 99.6 {'ctx_dead_end': 4.2, 'ctx_u_trap': 13.2, 'ctx_narrow_corridor': 18.7, 'ctx_open': 64.0}
+drqn_s15_k3_d0.2 eps=0.01 fail=497/2500 {'collision': 34.2, 'border_bump_stuck': 0.6, 'dead_end_stuck': 1.4, 'two_cell_osc': 15.9, 'long_cycle': 47.9} periodic% 62.7 {'ctx_dead_end': 7.3, 'ctx_u_trap': 42.5, 'ctx_narrow_corridor': 22.0, 'ctx_open': 28.1}
+drqn_s15_k5_d0.2 eps=0.01 fail=321/2500 {'collision': 36.8, 'border_bump_stuck': 2.2, 'dead_end_stuck': 2.2, 'two_cell_osc': 24.6, 'long_cycle': 34.3} periodic% 79.8 {'ctx_dead_end': 11.3, 'ctx_u_trap': 43.3, 'ctx_narrow_corridor': 10.8, 'ctx_open': 34.5}
+drqn_s15_k7_d0.2 eps=0.01 fail=344/2500 {'collision': 31.7, 'border_bump_stuck': 0.3, 'dead_end_stuck': 1.7, 'two_cell_osc': 27.6, 'long_cycle': 38.7} periodic% 78.3 {'ctx_dead_end': 6.4, 'ctx_u_trap': 44.7, 'ctx_narrow_corridor': 11.5, 'ctx_open': 37.4}
+saved /workspace/drqn-repo/results/trained/N15/failures/failure_summary_eps0.01.csv
+EVAL_TRAINED_DONE Thu Nov  5 13:12:51 CST 2026

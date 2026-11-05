@@ -1,0 +1,49 @@
+eval_eps,A,B,group,n_maps,mean_A,mean_B,diff_A_minus_B,t_test,t_stat,t_p,boot_ci_lo,boot_ci_hi,boot_p,family,holm_p,significant_0.05
+0.0,dqn_k5,drqn_k5,overall,500,0.6152,0.8792,-0.264,Welch,-11.9302,0.0001,-0.3128,-0.2188,0.0,primary,0.0002,True
+0.0,dqn_k5,drqn_k5,easy,109,0.80367,0.97615,-0.17248,Welch,-6.81052,0.00115,-0.2422,-0.10826,0.0002,exploratory,nan,True
+0.0,dqn_k5,drqn_k5,medium,84,0.70952,0.94048,-0.23095,Welch,-7.63283,0.00022,-0.31429,-0.14762,0.0,exploratory,nan,True
+0.0,dqn_k5,drqn_k5,hard,307,0.52248,0.82801,-0.30554,Welch,-10.93362,0.00012,-0.36938,-0.24689,0.0,exploratory,nan,True
+0.0,drqn_k3,drqn_k5,overall,500,0.8108,0.8792,-0.0684,Welch,-8.79529,6e-05,-0.09481,-0.0432,0.0,primary,0.00017,True
+0.0,drqn_k3,drqn_k5,easy,109,0.9578,0.97615,-0.01835,Welch,-1.88982,0.10014,-0.04954,0.01284,0.241,exploratory,nan,False
+0.0,drqn_k3,drqn_k5,medium,84,0.88095,0.94048,-0.05952,Welch,-3.22749,0.01313,-0.11905,-0.00476,0.039,exploratory,nan,True
+0.0,drqn_k3,drqn_k5,hard,307,0.73941,0.82801,-0.0886,Welch,-8.07723,9e-05,-0.12704,-0.05342,0.0,exploratory,nan,True
+0.0,drqn_k5,drqn_k7,overall,500,0.8792,0.8672,0.012,Welch,1.48979,0.17827,-0.0116,0.0356,0.3212,primary,0.17827,False
+0.0,drqn_k5,drqn_k7,easy,109,0.97615,0.96514,0.01101,Welch,1.14416,0.29026,-0.01835,0.04037,0.4622,exploratory,nan,False
+0.0,drqn_k5,drqn_k7,medium,84,0.94048,0.92381,0.01667,Welch,1.08661,0.3283,-0.03095,0.05952,0.4726,exploratory,nan,False
+0.0,drqn_k5,drqn_k7,hard,307,0.82801,0.81694,0.01107,Welch,0.99485,0.35223,-0.0228,0.0456,0.5236,exploratory,nan,False
+0.0,drqn_k3,drqn_k7,overall,500,0.8108,0.8672,-0.0564,Welch,-8.90872,2e-05,-0.0828,-0.0312,0.0,primary,9e-05,True
+0.0,drqn_k3,drqn_k7,easy,109,0.9578,0.96514,-0.00734,Welch,-0.95618,0.367,-0.0367,0.02202,0.6534,exploratory,nan,False
+0.0,drqn_k3,drqn_k7,medium,84,0.88095,0.92381,-0.04286,Welch,-3.49663,0.01539,-0.1,0.00952,0.12,exploratory,nan,False
+0.0,drqn_k3,drqn_k7,hard,307,0.73941,0.81694,-0.07752,Welch,-8.78474,2e-05,-0.11531,-0.04169,0.0,exploratory,nan,True
+0.01,dqn_k5,drqn_k5,overall,500,0.642,0.8716,-0.2296,Welch,-10.37058,0.00032,-0.2784,-0.1848,0.0,exploratory,nan,True
+0.01,dqn_k5,drqn_k5,easy,109,0.83119,0.97798,-0.14679,Welch,-8.18631,0.00041,-0.20367,-0.09358,0.0,exploratory,nan,True
+0.01,dqn_k5,drqn_k5,medium,84,0.72619,0.93095,-0.20476,Welch,-6.72573,0.00044,-0.29048,-0.12619,0.0,exploratory,nan,True
+0.01,dqn_k5,drqn_k5,hard,307,0.55179,0.81759,-0.2658,Welch,-9.735,0.0003,-0.32899,-0.20782,0.0,exploratory,nan,True
+0.01,drqn_k3,drqn_k5,overall,500,0.8012,0.8716,-0.0704,Welch,-10.42534,1e-05,-0.0964,-0.0444,0.0,exploratory,nan,True
+0.01,drqn_k3,drqn_k5,easy,109,0.94679,0.97798,-0.03119,Welch,-2.87352,0.0233,-0.06972,0.00367,0.0902,exploratory,nan,False
+0.01,drqn_k3,drqn_k5,medium,84,0.87381,0.93095,-0.05714,Welch,-2.68328,0.02782,-0.12143,0.00238,0.0684,exploratory,nan,False
+0.01,drqn_k3,drqn_k5,hard,307,0.72964,0.81759,-0.08795,Welch,-8.75996,2e-05,-0.12638,-0.05212,0.0,exploratory,nan,True
+0.01,drqn_k5,drqn_k7,overall,500,0.8716,0.8624,0.0092,Welch,1.64918,0.14047,-0.0132,0.032,0.416,exploratory,nan,False
+0.01,drqn_k5,drqn_k7,easy,109,0.97798,0.95229,0.02569,Welch,2.8,0.02334,-0.0055,0.05872,0.1128,exploratory,nan,False
+0.01,drqn_k5,drqn_k7,medium,84,0.93095,0.9119,0.01905,Welch,1.22714,0.27628,-0.03095,0.06667,0.4466,exploratory,nan,False
+0.01,drqn_k5,drqn_k7,hard,307,0.81759,0.81694,0.00065,Welch,0.07485,0.94246,-0.03194,0.03453,0.9816,exploratory,nan,False
+0.01,drqn_k3,drqn_k7,overall,500,0.8012,0.8624,-0.0612,Welch,-10.03414,2e-05,-0.088,-0.0352,0.0,exploratory,nan,True
+0.01,drqn_k3,drqn_k7,easy,109,0.94679,0.95229,-0.0055,Welch,-0.4932,0.63607,-0.04587,0.03303,0.8136,exploratory,nan,False
+0.01,drqn_k3,drqn_k7,medium,84,0.87381,0.9119,-0.0381,Welch,-2.372,0.06633,-0.1,0.01905,0.2048,exploratory,nan,False
+0.01,drqn_k3,drqn_k7,hard,307,0.72964,0.81694,-0.0873,Welch,-10.40042,1e-05,-0.12378,-0.05145,0.0,exploratory,nan,True
+0.01 vs 0,dqn_k5,dqn_k5,overall,500,0.642,0.6152,0.0268,paired t (same models),11.49041,0.00033,0.0136,0.0408,0.0,exploratory,nan,True
+0.01 vs 0,dqn_k5,dqn_k5,easy,109,0.83119,0.80367,0.02752,paired t (same models),2.86039,0.04591,-0.00183,0.05688,0.0678,exploratory,nan,False
+0.01 vs 0,dqn_k5,dqn_k5,medium,84,0.72619,0.70952,0.01667,paired t (same models),1.42887,0.22625,-0.01905,0.05476,0.4,exploratory,nan,False
+0.01 vs 0,dqn_k5,dqn_k5,hard,307,0.55179,0.52248,0.02932,paired t (same models),5.11166,0.00693,0.00977,0.04951,0.0056,exploratory,nan,True
+0.01 vs 0,drqn_k3,drqn_k3,overall,500,0.8012,0.8108,-0.0096,paired t (same models),-2.22834,0.08978,-0.0232,0.0036,0.1564,exploratory,nan,False
+0.01 vs 0,drqn_k3,drqn_k3,easy,109,0.94679,0.9578,-0.01101,paired t (same models),-1.1239,0.32394,-0.03853,0.01289,0.4274,exploratory,nan,False
+0.01 vs 0,drqn_k3,drqn_k3,medium,84,0.87381,0.88095,-0.00714,paired t (same models),-1.0,0.3739,-0.0381,0.01667,0.6718,exploratory,nan,False
+0.01 vs 0,drqn_k3,drqn_k3,hard,307,0.72964,0.73941,-0.00977,paired t (same models),-1.43019,0.22589,-0.02866,0.00977,0.3082,exploratory,nan,False
+0.01 vs 0,drqn_k5,drqn_k5,overall,500,0.8716,0.8792,-0.0076,paired t (same models),-2.8014,0.04874,-0.018,0.0028,0.153,exploratory,nan,False
+0.01 vs 0,drqn_k5,drqn_k5,easy,109,0.97798,0.97615,0.00183,paired t (same models),0.53452,0.62131,-0.01284,0.02018,0.9538,exploratory,nan,False
+0.01 vs 0,drqn_k5,drqn_k5,medium,84,0.93095,0.94048,-0.00952,paired t (same models),-2.13809,0.0993,-0.02857,0.00952,0.3648,exploratory,nan,False
+0.01 vs 0,drqn_k5,drqn_k5,hard,307,0.81759,0.82801,-0.01042,paired t (same models),-3.13786,0.03492,-0.02476,0.00326,0.1418,exploratory,nan,False
+0.01 vs 0,drqn_k7,drqn_k7,overall,500,0.8624,0.8672,-0.0048,paired t (same models),-1.29025,0.2665,-0.0164,0.0068,0.4012,exploratory,nan,False
+0.01 vs 0,drqn_k7,drqn_k7,easy,109,0.95229,0.96514,-0.01284,paired t (same models),-5.71548,0.00464,-0.02936,0.0,0.0698,exploratory,nan,False
+0.01 vs 0,drqn_k7,drqn_k7,medium,84,0.9119,0.92381,-0.0119,paired t (same models),-2.23607,0.08901,-0.03333,0.00952,0.3018,exploratory,nan,False
+0.01 vs 0,drqn_k7,drqn_k7,hard,307,0.81694,0.81694,0.0,paired t (same models),0.0,1.0,-0.01759,0.01629,1.0,exploratory,nan,False

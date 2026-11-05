@@ -8,6 +8,8 @@ Outputs (default results/):
   significance.csv          all pairwise tests (overall and per difficulty group)
 Zero-shot size transfer (10x10-trained models evaluated on N x N maps, see evaluate.py --size):
   python3 aggregate.py --runs results/runs/N15 --out results/summary_N15.csv
+Retrained on N x N (run_full.sh with N=15/20, results/runs_trained/N<N>):
+  python3 aggregate.py --runs results/runs_trained/N15 --out results/summary_trained_N15.csv  (extra train_size column)
   -> summary_N15.csv / summary_N15.md / significance_N15.csv (the significance file name follows the --out name:
      "summary" -> "significance"), with an extra eval_size column; tests are within that N only, Holm over the 4
      primary pairs of that N (same procedure as 10x10). The 10x10 outputs (summary.csv etc.) are unchanged.
@@ -61,12 +63,16 @@ def collect(runs="runs", with_evals=False):
     for f in glob.glob(f"{runs}/*/seed*/eval_*.json"):
         e = json.load(open(f))
         e["_file"] = f
-        groups[(e["agent"], e["obs"], e["train_density"], e["eval_density"], e.get("eval_eps", 0.0), e.get("eval_size", 0))].append(e)
+        groups[(e["agent"], e["obs"], e["train_density"], e["eval_density"], e.get("eval_eps", 0.0), e.get("eval_size", 0),
+                e.get("size", 10))].append(e)
     rows = []
-    for (agent, k, td, ed, ee, es_), es in sorted(groups.items()):
+    for (agent, k, td, ed, ee, es_, ts), es in sorted(groups.items()):
         es.sort(key=lambda e: e["seed"])
         row = {"agent": agent, "obs": k, "train_density": td, "eval_density": ed, "eval_eps": ee}
-        if es_:  # only for size-transfer evaluations; the 10x10 summary.csv keeps its original columns
+        # extra columns only for non-10x10 settings; the 10x10 summary.csv keeps its original columns
+        if ts != 10:
+            row["train_size"] = ts  # trained (and evaluated) on N x N maps (results/runs_trained/N<N>)
+        if es_:  # size-transfer evaluation
             row["eval_size"] = es_
         row["n_seeds"] = len(es)
         for m in ("success_rate", "collision_rate", "timeout_rate", "avg_steps_success"):
@@ -165,6 +171,7 @@ def main():
     if not os.path.basename(sig_path).startswith("significance"):
         sig_path = os.path.join(os.path.dirname(a.out) or ".", "significance.csv")
     sizes = sorted({r["eval_size"] for r in rows if "eval_size" in r})
+    tsizes = sorted({r["train_size"] for r in rows if "train_size" in r and "eval_size" not in r})
     if sig:
         with open(sig_path, "w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=list(sig[0])); w.writeheader()
@@ -179,6 +186,8 @@ def main():
           f"所有数值为 {nseeds} 个种子的均值 ± 95% 置信区间（Student t，n=种子数）；测试集为固定的 {nmaps} 张地图（seed 10,000,000+i）。", "",
           *([f"**零样本尺寸迁移**：模型均在 10×10 上训练、未重新训练，测试地图尺寸 N={'/'.join(map(str, sizes))}"
              f"（密度 0.2，起终点曼哈顿距离 ≥7，max_steps=8N，目标偏移 /(N−1) 归一化）。显著性检验仅在同一 N 内进行。", ""] if sizes else []),
+          *([f"**在大地图上重新训练**：模型在 N={'/'.join(map(str, tsizes))} 上训练并在同尺寸测试（超参数、网络、奖励、10000 回合与 10×10 相同；"
+             f"密度 0.2，起终点曼哈顿距离 ≥7，max_steps=8N，目标偏移 /(N−1) 归一化，训练与测试一致）。显著性检验仅在同一 N 内进行。", ""] if tsizes else []),
           "## 1. 贪心评估（ε=0，主协议） / Greedy evaluation", "",
           "| agent | k | eval density | seeds | success (mean ± 95% CI) | easy | medium | hard | collision | timeout | avg steps (succ.) |",
           "|---|---|---|---|---|---|---|---|---|---|---|"]

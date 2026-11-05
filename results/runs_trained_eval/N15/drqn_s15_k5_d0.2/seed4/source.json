@@ -1,0 +1,7 @@
+{
+  "model_run": "../../../../runs_trained/N15/drqn_s15_k5_d0.2/seed4",
+  "train_size": 15,
+  "eval_size": 15,
+  "eval_max_steps": 120,
+  "min_start_goal_dist": 7
+}

@@ -7,7 +7,7 @@ from common import AGENTS, DEFAULT_GAMMA, RESULTS_DIR, make_env, make_agent, mod
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--agent", choices=AGENTS, default="drqn")
-    p.add_argument("--size", type=int, default=10)
+    p.add_argument("--size", "--N", dest="size", type=int, default=10, help="map side length N (default 10; max_steps defaults to 8N)")
     p.add_argument("--obs", type=int, default=5, choices=[3, 5, 7])
     p.add_argument("--density", type=float, default=0.2)
     p.add_argument("--episodes", type=int, default=3000)
