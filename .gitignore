@@ -3,3 +3,4 @@ __pycache__/
 .pytest_cache/
 smoke_results/
 code/smoke_results/
+results/occlusion_smoke/

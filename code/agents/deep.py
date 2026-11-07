@@ -79,11 +79,36 @@ class _DeepBase:
         self.opt.step()
         return float(loss.detach())
 
-    def save(self, path):
-        torch.save(self.net.state_dict(), path)
+    def save(self, path, metadata=None):
+        """Save weights plus observation-mode metadata.
+
+        New files use a small wrapper (`format`, `state_dict`, `metadata`). `load`
+        still accepts a legacy raw state_dict and then reports no metadata, which
+        callers treat as a window-mode checkpoint. Default metadata is window so a
+        save that forgets to pass a mode cannot be mistaken for an occlusion run.
+        """
+        meta = {"obs_mode": "window"}
+        if metadata:
+            meta.update(metadata)
+        if not meta.get("obs_mode"):
+            meta["obs_mode"] = "window"
+        torch.save({"format": "drqn_ckpt_v1", "state_dict": self.net.state_dict(), "metadata": meta}, path)
 
     def load(self, path):
-        self.net.load_state_dict(torch.load(path, map_location=self.device))
+        # weights_only=False keeps the historical load of a tensor state_dict and also
+        # accepts the wrapper, whose metadata holds strings. Older torch builds reject
+        # the keyword; fall back to the same call those builds already used.
+        try:
+            obj = torch.load(path, map_location=self.device, weights_only=False)
+        except TypeError:
+            obj = torch.load(path, map_location=self.device)
+        self.checkpoint_metadata = None
+        if isinstance(obj, dict) and obj.get("format") == "drqn_ckpt_v1" and "state_dict" in obj:
+            self.checkpoint_metadata = dict(obj.get("metadata") or {})
+            state = obj["state_dict"]
+        else:
+            state = obj
+        self.net.load_state_dict(state)
         self.tgt.load_state_dict(self.net.state_dict())
 
 

@@ -10,12 +10,17 @@ Zero-shot size transfer (--size N): the model trained at its config size (10) is
 N x N test maps (seeds TEST_SEED_BASE + i generated at size N; density, min start-goal distance 7 unchanged,
 max_steps = 8N). Output then goes to --out (default <results>/runs/N<N>/<config>/seed<s>/) so the 10x10 files
 under results/runs/<config>/seed<s>/ are never touched; a source.json there records which model was evaluated.
+
+Observation mode comes from the checkpoint config (missing key = window, the published runs).
+--obs_mode overrides it. A mismatch is exploratory cross-mode evaluation: results are written
+outside the checkpoint directory and outside results/runs, and the json is marked
+exploratory_cross_mode. Same-mode window evaluation keeps the historical output schema.
 """
 import argparse, csv, glob, json, os
 import numpy as np
 import torch
-from common import RESULTS_DIR, load_run, make_env
-from envs.grid_env import TEST_SEED_BASE, corridor_score
+from common import RESULTS_DIR, assert_separated_from_main_runs, load_run, make_env
+from envs.grid_env import OBS_MODE_WINDOW, TEST_SEED_BASE, corridor_score, normalize_obs_mode
 
 
 def difficulty(shortest, bins):
@@ -35,9 +40,22 @@ def summarize(eps):
             "avg_path_ratio_success": float(np.mean([e["steps"] / e["shortest"] for e in succ])) if succ else None}
 
 
-def evaluate(run_dir, n_maps=300, density=None, bins=(9, 11), max_failures=10**9, eval_eps=0.0, size=None, out_dir=None):
+def evaluate(run_dir, n_maps=300, density=None, bins=(9, 11), max_failures=10**9, eval_eps=0.0, size=None, out_dir=None,
+             obs_mode=None):
     cfg, agent = load_run(run_dir)
+    train_mode = normalize_obs_mode(cfg.get("obs_mode"))
+    eval_mode = train_mode if obs_mode is None else normalize_obs_mode(obs_mode)
+    cross = eval_mode != train_mode
+    if cross and (out_dir is None or os.path.abspath(out_dir) == os.path.abspath(run_dir)):
+        raise RuntimeError(
+            "cross-mode evaluation is exploratory and cannot write into the checkpoint directory "
+            f"(train obs_mode={train_mode}, eval obs_mode={eval_mode}). Pass a separate out_dir."
+        )
+    dest = out_dir or run_dir
+    if cross or eval_mode != OBS_MODE_WINDOW:
+        assert_separated_from_main_runs(dest)
     ecfg = dict(cfg)
+    ecfg["obs_mode"] = eval_mode
     if density is not None:
         ecfg["density"] = density
     if size is not None:
@@ -69,12 +87,24 @@ def evaluate(run_dir, n_maps=300, density=None, bins=(9, 11), max_failures=10**9
            **({"eval_size": ecfg["size"], "eval_max_steps": env.max_steps} if ecfg["size"] != cfg["size"] else {}),
            "difficulty_bins_shortest_path": list(bins), **summarize(eps),
            "by_difficulty": {d: summarize([e for e in eps if e["difficulty"] == d]) for d in ("easy", "medium", "hard")}}
+    # Window-mode, same-mode evaluation keeps the historical json keys. Anything else records the mode
+    # so later aggregation cannot treat an occlusion run as one of the published window runs.
+    if cross or eval_mode != OBS_MODE_WINDOW or train_mode != OBS_MODE_WINDOW:
+        res["obs_mode"] = eval_mode
+        res["train_obs_mode"] = train_mode
+    if cross:
+        res["exploratory_cross_mode"] = True
     tag = f"d{ecfg['density']}" + (f"_eps{eval_eps:g}" if eval_eps > 0 else "")
+    if cross:
+        tag += f"_xmode_{eval_mode}"
     if out_dir != run_dir:
         res["model_run"] = os.path.relpath(run_dir, out_dir)
-        json.dump({"model_run": res["model_run"], "train_size": cfg["size"], "eval_size": ecfg["size"],
-                   "eval_max_steps": env.max_steps, "min_start_goal_dist": env.min_sg},
-                  open(os.path.join(out_dir, "source.json"), "w"), indent=2)
+        source = {"model_run": res["model_run"], "train_size": cfg["size"], "eval_size": ecfg["size"],
+                  "eval_max_steps": env.max_steps, "min_start_goal_dist": env.min_sg}
+        if cross or eval_mode != OBS_MODE_WINDOW or train_mode != OBS_MODE_WINDOW:
+            source.update({"train_obs_mode": train_mode, "eval_obs_mode": eval_mode,
+                           "exploratory_cross_mode": cross})
+        json.dump(source, open(os.path.join(out_dir, "source.json"), "w"), indent=2)
     json.dump(res, open(os.path.join(out_dir, f"eval_{tag}.json"), "w"), indent=2)
     json.dump(failures, open(os.path.join(out_dir, f"failures_{tag}.json"), "w"))
     with open(os.path.join(out_dir, f"episodes_{tag}.csv"), "w", newline="") as f:
@@ -94,14 +124,29 @@ if __name__ == "__main__":
                    help="evaluate on N x N maps (zero-shot size transfer; default = training size from config.json)")
     p.add_argument("--out", default=None,
                    help="output root (default for --size runs: <results>/runs/N<size>; also usable without --size, e.g. results/runs_trained_eval/N15); files go to <out>/<config>/seed<s>/")
+    p.add_argument("--obs_mode", choices=["window", "los"], default=None,
+                   help="observation mode for this evaluation (default: the checkpoint's mode). "
+                        "A value other than the checkpoint mode is exploratory cross-mode evaluation "
+                        "and is written outside the checkpoint directory and outside results/runs.")
     a = p.parse_args()
     torch.set_num_threads(1)
     dirs = [a.run] if os.path.exists(os.path.join(a.run, "config.json")) else sorted(glob.glob(os.path.join(a.run, "seed*")))
     for d in dirs:
+        cfg0 = json.load(open(os.path.join(d, "config.json")))
+        train_mode = normalize_obs_mode(cfg0.get("obs_mode"))
+        eval_mode = train_mode if a.obs_mode is None else normalize_obs_mode(a.obs_mode)
+        cross = eval_mode != train_mode
         od = None
-        if a.size is not None and a.size != json.load(open(os.path.join(d, "config.json")))["size"] or a.out:
-            root = a.out or os.path.join(RESULTS_DIR, "runs", f"N{a.size}")
+        size_transfer = a.size is not None and a.size != cfg0["size"]
+        if size_transfer or a.out or cross:
+            if cross and not a.out:
+                root = os.path.join(RESULTS_DIR, "exploratory_cross_mode", f"{train_mode}_to_{eval_mode}")
+                if size_transfer:
+                    root = os.path.join(root, f"N{a.size}")
+            else:
+                root = a.out or os.path.join(RESULTS_DIR, "runs", f"N{a.size}")
             od = os.path.join(root, os.path.basename(os.path.dirname(os.path.abspath(d))), os.path.basename(os.path.abspath(d)))
-        r = evaluate(d, a.n_maps, a.density, tuple(a.bins), eval_eps=a.eval_eps, size=a.size, out_dir=od)
+        r = evaluate(d, a.n_maps, a.density, tuple(a.bins), eval_eps=a.eval_eps, size=a.size, out_dir=od,
+                     obs_mode=a.obs_mode)
         print(f"{d} eps={a.eval_eps:g}: success={r['success_rate']:.3f} collision={r['collision_rate']:.3f} timeout={r['timeout_rate']:.3f} "
               + " ".join(f"{k}={v.get('success_rate', float('nan')):.2f}(n={v['n']})" for k, v in r["by_difficulty"].items()))

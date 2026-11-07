@@ -30,7 +30,7 @@ import argparse, csv, glob, json, os
 from collections import defaultdict
 import numpy as np
 from scipy import stats
-from common import RESULTS_DIR
+from common import RESULTS_DIR, refuse_protected_thesis_output
 
 DIFFS = ("easy", "medium", "hard")
 PAIRS = [(("dqn", 5), ("drqn", 5)), (("drqn", 3), ("drqn", 5)), (("drqn", 5), ("drqn", 7)), (("drqn", 3), ("drqn", 7))]
@@ -58,17 +58,28 @@ def ci95(x):
     return float(x.mean()), float(tcrit(len(x)) * x.std(ddof=1) / np.sqrt(len(x)))
 
 
-def collect(runs="runs", with_evals=False):
+def collect(runs="runs", with_evals=False, include_exploratory=False):
     groups = defaultdict(list)
+    skipped = 0
     for f in glob.glob(f"{runs}/*/seed*/eval_*.json"):
         e = json.load(open(f))
+        # Cross-mode evals are labelled exploratory and stay out of the summary unless asked.
+        if e.get("exploratory_cross_mode") and not include_exploratory:
+            skipped += 1
+            continue
         e["_file"] = f
         groups[(e["agent"], e["obs"], e["train_density"], e["eval_density"], e.get("eval_eps", 0.0), e.get("eval_size", 0),
-                e.get("size", 10))].append(e)
+                e.get("size", 10), e.get("obs_mode", "window"))].append(e)
+    if skipped:
+        print(f"aggregate: skipped {skipped} exploratory cross-mode eval file(s); not mixed into the table")
     rows = []
-    for (agent, k, td, ed, ee, es_, ts), es in sorted(groups.items()):
+    include_mode_col = any(key[-1] != "window" for key in groups)
+    for (agent, k, td, ed, ee, es_, ts, mode), es in sorted(groups.items()):
         es.sort(key=lambda e: e["seed"])
         row = {"agent": agent, "obs": k, "train_density": td, "eval_density": ed, "eval_eps": ee}
+        # Only when a non-window mode is present, so a window-only summary keeps its columns.
+        if include_mode_col:
+            row["obs_mode"] = mode
         # extra columns only for non-10x10 settings; the 10x10 summary.csv keeps its original columns
         if ts != 10:
             row["train_size"] = ts  # trained (and evaluated) on N x N maps (results/runs_trained/N<N>)
@@ -135,6 +146,46 @@ def _test(ea, eb, ee_a, ee_b, A, B, same_seeds=False):
 
 
 def significance(rows, density=0.2):
+    """Within one obs_mode, identical to the historical tests. Mixed modes are split first.
+
+    Cross-mode pairs are appended only when more than one mode is present, and they are
+    exploratory (not part of the Holm family). `main` refuses a mixed folder unless asked.
+    """
+    buckets = defaultdict(list)
+    for r in rows:
+        buckets[r.get("obs_mode", "window")].append(r)
+    if len(buckets) <= 1:
+        return _significance_one(rows, density)
+    out = []
+    for mode in sorted(buckets):
+        out.extend(_significance_one(buckets[mode], density))
+    out.extend(_cross_mode_exploratory(buckets, density))
+    return out
+
+
+def _cross_mode_exploratory(buckets, density):
+    modes = sorted(buckets)
+    out = []
+    for i, ma in enumerate(modes):
+        idx_a = {(r["agent"], r["obs"], r["eval_eps"]): r for r in buckets[ma]
+                 if abs(r["eval_density"] - density) < 1e-9 and abs(r["train_density"] - density) < 1e-9}
+        for mb in modes[i + 1:]:
+            idx_b = {(r["agent"], r["obs"], r["eval_eps"]): r for r in buckets[mb]
+                     if abs(r["eval_density"] - density) < 1e-9 and abs(r["train_density"] - density) < 1e-9}
+            for key in sorted(set(idx_a) & set(idx_b)):
+                agent_k = (key[0], key[1])
+                tests = _test(idx_a[key]["_evals"], idx_b[key]["_evals"], key[2], key[2], agent_k, agent_k)
+                for s in tests:
+                    s["family"] = "exploratory"
+                    s["holm_p"] = float("nan")
+                    s["A"] = f"{s['A']}:{ma}"
+                    s["B"] = f"{s['B']}:{mb}"
+                    s["significant_0.05"] = bool(s["t_p"] < 0.05 and (s["boot_ci_lo"] > 0 or s["boot_ci_hi"] < 0))
+                out.extend(tests)
+    return out
+
+
+def _significance_one(rows, density=0.2):
     """(a) between-config pairs at every eval eps; (b) within-config: eps-greedy (A) vs greedy (B)."""
     out = []
     idx = {(r["agent"], r["obs"], r["eval_eps"]): r for r in rows
@@ -160,8 +211,22 @@ def main():
     p = argparse.ArgumentParser(); p.add_argument("--runs", default=os.path.join(RESULTS_DIR, "runs"))
     p.add_argument("--out", default=os.path.join(RESULTS_DIR, "summary.csv"))
     p.add_argument("--density", type=float, default=0.2, help="density for the eps table and significance tests")
+    p.add_argument("--allow_mixed_obs_modes", action="store_true",
+                   help="write one table that contains more than one obs_mode. Cross-mode tests are exploratory. "
+                        "Will not overwrite results/summary.csv.")
     a = p.parse_args()
     rows = collect(a.runs, with_evals=True)
+    if not rows:
+        raise SystemExit("no eval files to aggregate (exploratory cross-mode files are left out of the table)")
+    modes = sorted({r.get("obs_mode", "window") for r in rows})
+    if len(modes) > 1 and not a.allow_mixed_obs_modes:
+        raise SystemExit(
+            "refusing to aggregate mixed obs_mode values (" + ", ".join(modes) + "). "
+            "Window-mode thesis results and line-of-sight results must stay in separate summaries. "
+            "Pass --allow_mixed_obs_modes and an --out path other than results/summary.csv."
+        )
+    if any(m != "window" for m in modes):
+        refuse_protected_thesis_output(a.out, "summary.csv")
     os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
     sig = significance(rows, a.density)
     plain = [{k: v for k, v in r.items() if not k.startswith("_")} for r in rows]
@@ -182,29 +247,43 @@ def main():
     nseeds = sorted({r["n_seeds"] for r in rows if r["agent"] != "random"} or {5})
     nseeds = str(nseeds[0]) if len(nseeds) == 1 else "/".join(map(str, nseeds))
     f2 = lambda m, c: "n/a" if m is None else (f"{m:.3f} ± {c:.3f}" if c == c else f"{m:.3f}")
+    show_mode = any("obs_mode" in r for r in rows)
+    mode_note = (["**观测模式**：本表包含视线遮挡（`obs_mode=los`），或与 window 模式混排。"
+                  "论文里已经发表的成功率（例如 10×10 上 DQN k5 贪心 0.689、DRQN k5 贪心 0.926）是 **window 模式、无遮挡** 的结果，"
+                  "不是本表里的遮挡结果。跨观测模式的比较若出现，一律标为探索性分析，不进入主假设族的 Holm 校正。", ""]
+                 if show_mode else [])
     md = ["# 结果汇总 / Results summary", "",
           f"所有数值为 {nseeds} 个种子的均值 ± 95% 置信区间（Student t，n=种子数）；测试集为固定的 {nmaps} 张地图（seed 10,000,000+i）。", "",
+          *mode_note,
           *([f"**零样本尺寸迁移**：模型均在 10×10 上训练、未重新训练，测试地图尺寸 N={'/'.join(map(str, sizes))}"
              f"（密度 0.2，起终点曼哈顿距离 ≥7，max_steps=8N，目标偏移 /(N−1) 归一化）。显著性检验仅在同一 N 内进行。", ""] if sizes else []),
           *([f"**在大地图上重新训练**：模型在 N={'/'.join(map(str, tsizes))} 上训练并在同尺寸测试（超参数、网络、奖励、10000 回合与 10×10 相同；"
              f"密度 0.2，起终点曼哈顿距离 ≥7，max_steps=8N，目标偏移 /(N−1) 归一化，训练与测试一致）。显著性检验仅在同一 N 内进行。", ""] if tsizes else []),
           "## 1. 贪心评估（ε=0，主协议） / Greedy evaluation", "",
-          "| agent | k | eval density | seeds | success (mean ± 95% CI) | easy | medium | hard | collision | timeout | avg steps (succ.) |",
-          "|---|---|---|---|---|---|---|---|---|---|---|"]
+          ("| agent | k | obs_mode | eval density | seeds | success (mean ± 95% CI) | easy | medium | hard | collision | timeout | avg steps (succ.) |"
+           if show_mode else
+           "| agent | k | eval density | seeds | success (mean ± 95% CI) | easy | medium | hard | collision | timeout | avg steps (succ.) |"),
+          ("|---|---|---|---|---|---|---|---|---|---|---|---|" if show_mode else
+           "|---|---|---|---|---|---|---|---|---|---|---|")]
     for r in rows:
         if r["eval_eps"] != 0:
             continue
-        md.append(f"| {r['agent']} | {r['obs']} | {r['eval_density']} | {r['n_seeds']} | {f2(r['success_rate'], r['success_rate_ci95'])} | "
+        mode_col = f" {r.get('obs_mode', 'window')} |" if show_mode else ""
+        md.append(f"| {r['agent']} | {r['obs']} |{mode_col} {r['eval_density']} | {r['n_seeds']} | {f2(r['success_rate'], r['success_rate_ci95'])} | "
                   f"{f2(r['success_easy'], r['success_easy_ci95'])} | {f2(r['success_medium'], r['success_medium_ci95'])} | "
                   f"{f2(r['success_hard'], r['success_hard_ci95'])} | {f2(r['collision_rate'], r['collision_rate_ci95'])} | "
                   f"{f2(r['timeout_rate'], r['timeout_rate_ci95'])} | {f2(r['avg_steps_success'], r['avg_steps_success_ci95'])} |")
     md += ["", f"## 2. 贪心 vs ε-贪心评估（density {a.density}） / Greedy vs epsilon-greedy evaluation", "",
-           "| agent | k | eval ε | success | easy | medium | hard | collision | timeout | avg steps (succ.) |",
-           "|---|---|---|---|---|---|---|---|---|---|"]
-    for r in sorted(rows, key=lambda r: (r["agent"], r["obs"], r["eval_eps"])):
+           ("| agent | k | obs_mode | eval ε | success | easy | medium | hard | collision | timeout | avg steps (succ.) |"
+            if show_mode else
+            "| agent | k | eval ε | success | easy | medium | hard | collision | timeout | avg steps (succ.) |"),
+           ("|---|---|---|---|---|---|---|---|---|---|---|" if show_mode else
+            "|---|---|---|---|---|---|---|---|---|---|")]
+    for r in sorted(rows, key=lambda r: (r.get("obs_mode", "window"), r["agent"], r["obs"], r["eval_eps"])):
         if abs(r["eval_density"] - a.density) > 1e-9 or r["agent"] == "random":
             continue
-        md.append(f"| {r['agent']} | {r['obs']} | {r['eval_eps']:g} | {f2(r['success_rate'], r['success_rate_ci95'])} | "
+        mode_col = f" {r.get('obs_mode', 'window')} |" if show_mode else ""
+        md.append(f"| {r['agent']} | {r['obs']} |{mode_col} {r['eval_eps']:g} | {f2(r['success_rate'], r['success_rate_ci95'])} | "
                   f"{f2(r['success_easy'], r['success_easy_ci95'])} | {f2(r['success_medium'], r['success_medium_ci95'])} | "
                   f"{f2(r['success_hard'], r['success_hard_ci95'])} | {f2(r['collision_rate'], r['collision_rate_ci95'])} | "
                   f"{f2(r['timeout_rate'], r['timeout_rate_ci95'])} | {f2(r['avg_steps_success'], r['avg_steps_success_ci95'])} |")

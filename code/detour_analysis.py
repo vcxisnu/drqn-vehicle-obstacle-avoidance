@@ -19,8 +19,8 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from common import RESULTS_DIR, make_env
-from envs.grid_env import TEST_SEED_BASE
+from common import RESULTS_DIR, make_env, refuse_protected_thesis_output
+from envs.grid_env import TEST_SEED_BASE, normalize_obs_mode
 from aggregate import ci95
 
 BINS = [(1.0, 1.0, "=1.0 (straight)"), (1.0, 1.25, "(1.0, 1.25]"), (1.25, 1.5, "(1.25, 1.5]"), (1.5, 1e9, ">1.5")]
@@ -53,7 +53,19 @@ def main():
     p.add_argument("--runs", default=os.path.join(RESULTS_DIR, "runs"))
     p.add_argument("--out", default=os.path.join(RESULTS_DIR, "detour"))
     p.add_argument("--density", type=float, default=0.2)
-    a = p.parse_args(); os.makedirs(a.out, exist_ok=True)
+    a = p.parse_args()
+    # Los / cross-mode tables must not overwrite results/detour (the published window-mode analysis).
+    nonwindow = False
+    for ev_path in glob.glob(f"{a.runs}/*/seed*/eval_d{a.density:g}*.json"):
+        ev = json.load(open(ev_path))
+        if ev.get("exploratory_cross_mode"):
+            continue
+        if normalize_obs_mode(ev.get("obs_mode")) != "window":
+            nonwindow = True
+            break
+    if nonwindow:
+        refuse_protected_thesis_output(a.out, "detour")
+    os.makedirs(a.out, exist_ok=True)
     cache, rows = {}, []
     names = [b[2] for b in BINS]
     for cdir in sorted(glob.glob(f"{a.runs}/*/")):
@@ -63,6 +75,10 @@ def main():
         for ep_file in sorted(glob.glob(f"{cdir}/seed*/episodes_d{a.density:g}*.csv")):
             tag = os.path.basename(ep_file)[len("episodes_"):-4]
             eps = float(tag.split("_eps")[1]) if "_eps" in tag else 0.0
+            eval_path = os.path.join(os.path.dirname(ep_file), "eval_" + os.path.basename(ep_file)[len("episodes_"):])
+            if os.path.exists(eval_path) and json.load(open(eval_path)).get("exploratory_cross_mode"):
+                print("detour_analysis: skip exploratory cross-mode", ep_file)
+                continue
             recs = list(csv.DictReader(open(ep_file)))
             if not recs:
                 continue

@@ -9,6 +9,7 @@ Default checkpoint: best DRQN k=5 seed (highest eval_d0.2 success) under results
 import argparse, glob, json, os, sys
 import numpy as np
 from common import RESULTS_DIR
+from envs.grid_env import OBS_MODE_LOS, OCC_UNKNOWN
 
 CELL, PANEL = 44, 70
 
@@ -44,6 +45,21 @@ def draw(pg, screen, font, env, status, speed):
     win = pg.Surface((k * CELL, k * CELL), pg.SRCALPHA); win.fill((255, 200, 0, 60))
     screen.blit(win, ((c - h) * CELL, (r - h) * CELL))
     pg.draw.rect(screen, (230, 160, 0), pg.Rect((c - h) * CELL, (r - h) * CELL, k * CELL, k * CELL), 3)
+    # Los only: paint in-map cells the agent cannot see. Window mode does not enter this block,
+    # so the historical god-view frame is unchanged. Truth (the grey obstacles) stays visible;
+    # the blue wash is the occlusion, not a second map memory.
+    if getattr(env, "obs_mode", "window") == OBS_MODE_LOS:
+        occ = env._obs()[:k * k].reshape(k, k)
+        for i in range(k):
+            for j in range(k):
+                if float(occ[i, j]) != OCC_UNKNOWN:
+                    continue
+                rr, cc = r + (i - h), c + (j - h)
+                if not (0 <= rr < n and 0 <= cc < n):
+                    continue
+                shade = pg.Surface((CELL - 2, CELL - 2), pg.SRCALPHA)
+                shade.fill((50, 110, 210, 120))
+                screen.blit(shade, (cc * CELL + 1, rr * CELL + 1))
     sr, sc = env.start; gr, gc = env.goal
     pg.draw.rect(screen, (60, 200, 90), pg.Rect(sc * CELL + 6, sr * CELL + 6, CELL - 12, CELL - 12), 3)
     pg.draw.circle(screen, (220, 40, 40), (gc * CELL + CELL // 2, gr * CELL + CELL // 2), CELL // 3)
@@ -58,8 +74,11 @@ def draw(pg, screen, font, env, status, speed):
     col = {"success": (0, 150, 0), "collision": (200, 0, 0), "timeout": (200, 120, 0)}.get(status, (0, 0, 0))
     screen.blit(font.render(f"step {env.t}/{env.max_steps}   shortest {int(env.goal_dist[env.start])}   "
                             f"status: {status}", True, col), (8, n * CELL + 8))
-    screen.blit(font.render(f"win {k}x{k}  {speed}/s  N:new R:replay +/-:speed Q:quit",
-                            True, (80, 80, 80)), (8, n * CELL + 36))
+    mode = getattr(env, "obs_mode", "window")
+    hint = f"win {k}x{k}  {speed}/s  N:new R:replay +/-:speed Q:quit"
+    if mode == OBS_MODE_LOS:
+        hint = f"LOS k={k}  blue=unknown  offset known  {speed}/s  N/R/+/-/Q"
+    screen.blit(font.render(hint, True, (80, 80, 80)), (8, n * CELL + 36))
 
 
 def run_episode(env, agent, rng, seed):
@@ -82,6 +101,9 @@ def main():
     p.add_argument("--episodes", type=int, default=4)
     p.add_argument("--map_seed", type=int, default=None, help="first map seed (default random)")
     p.add_argument("--need_success", action="store_true", help="(record) ensure >=1 successful episode in the GIF")
+    p.add_argument("--obs_mode", choices=["window", "los"], default=None,
+                   help="override the checkpoint observation mode for this viewing only. "
+                        "A mismatch is exploratory: it does not rewrite the checkpoint.")
     a = p.parse_args()
     if a.record:
         os.environ["SDL_VIDEODRIVER"] = "dummy"
@@ -92,6 +114,11 @@ def main():
     torch.set_num_threads(1)
     run = a.run or best_run()
     cfg, agent = load_run(run)
+    train_mode = cfg.get("obs_mode", "window")
+    if a.obs_mode is not None and a.obs_mode != train_mode:
+        print(f"EXPLORATORY cross-mode view: checkpoint obs_mode={train_mode}, viewing obs_mode={a.obs_mode}. "
+              "The checkpoint files are not modified.")
+        cfg = dict(cfg, obs_mode=a.obs_mode)
     env = make_env(cfg)
     rng = np.random.default_rng(0)
     pg.init()

@@ -5,21 +5,32 @@
   plots/eval_eps.png         : held-out success under greedy (eps=0) vs epsilon-greedy evaluation (eps=0.01/0.05)
 All bands / error bars are Student-t 95% CIs over seeds (same as the summary tables).
 """
-import argparse, csv, glob, os
+import argparse, csv, glob, json, os
 from collections import defaultdict
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from aggregate import collect, ci95, tcrit
-from common import RESULTS_DIR
+from common import RESULTS_DIR, refuse_protected_thesis_output
+from envs.grid_env import normalize_obs_mode
 
 AGENT_LABELS = ("dqn", "drqn", "tabular")
 
 
-def train_curves(runs, agent, k, metric="success", win=100):
+def _log_obs_mode(log_path):
+    cfg_path = os.path.join(os.path.dirname(log_path), "config.json")
+    if not os.path.exists(cfg_path):
+        return "window"
+    return normalize_obs_mode(json.load(open(cfg_path)).get("obs_mode"))
+
+
+def train_curves(runs, agent, k, metric="success", win=100, obs_mode="window"):
     curves = []
     for log in glob.glob(f"{runs}/{agent}_s[0-9]*_k{k}_*/seed*/train_log.csv"):
+        # A los directory such as drqn_s10_k5_d0.2_los matches the same glob as the window run.
+        if _log_obs_mode(log) != obs_mode:
+            continue
         x = np.array([float(r[metric]) for r in csv.DictReader(open(log))])
         curves.append(np.convolve(x, np.ones(win) / win, mode="valid"))
     if not curves:
@@ -33,8 +44,20 @@ def main():
     p = argparse.ArgumentParser(); p.add_argument("--runs", default=os.path.join(RESULTS_DIR, "runs"))
     p.add_argument("--out", default=os.path.join(RESULTS_DIR, "plots"))
     p.add_argument("--k", type=int, default=5); p.add_argument("--density", type=float, default=0.2)
-    a = p.parse_args(); os.makedirs(a.out, exist_ok=True)
+    p.add_argument("--obs_mode", choices=["window", "los"], default="window",
+                   help="which observation mode to plot (default window, the published runs). "
+                        "Other modes in the same folder are skipped, not averaged in. "
+                        "los will not overwrite results/plots.")
+    a = p.parse_args()
+    if a.obs_mode != "window":
+        refuse_protected_thesis_output(a.out, "plots")
+    os.makedirs(a.out, exist_ok=True)
     all_rows = collect(a.runs)
+    other = [r for r in all_rows if r.get("obs_mode", "window") != a.obs_mode]
+    if other:
+        print(f"plot: skipped {len(other)} aggregated row(s) with obs_mode != {a.obs_mode} "
+              "(not mixed into these figures)")
+    all_rows = [r for r in all_rows if r.get("obs_mode", "window") == a.obs_mode]
     rows = [r for r in all_rows if r.get("eval_eps", 0) == 0]  # greedy evaluation = main protocol
     at = lambda r: abs(r["eval_density"] - a.density) < 1e-9 and abs(r["train_density"] - a.density) < 1e-9
     nz = lambda v: 0.0 if v is None or np.isnan(v) else v
@@ -44,7 +67,7 @@ def main():
         fig, axs = plt.subplots(1, 2, figsize=(12, 4.5))
         for ag, k in sets:
             for ax_, metric in zip(axs, ("reward", "success")):
-                c = train_curves(a.runs, ag, k, metric)
+                c = train_curves(a.runs, ag, k, metric, obs_mode=a.obs_mode)
                 if c:
                     m, s_, n = c; x = np.arange(len(m)) + 100
                     ax_.plot(x, m, label=f"{ag} k={k} (n={n})"); ax_.fill_between(x, m - s_, m + s_, alpha=0.2)
@@ -56,7 +79,7 @@ def main():
     # ---- Experiment 1
     fig, ax = plt.subplots(1, 2, figsize=(12, 4.5))
     for ag in AGENT_LABELS:
-        c = train_curves(a.runs, ag, a.k, "success")
+        c = train_curves(a.runs, ag, a.k, "success", obs_mode=a.obs_mode)
         if c:
             m, s, n = c; x = np.arange(len(m))
             ax[0].plot(x, m, label=f"{ag} (n={n} seeds)"); ax[0].fill_between(x, m - s, m + s, alpha=0.2)

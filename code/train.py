@@ -1,7 +1,8 @@
 import argparse, csv, json, os, random, time
 import numpy as np
 import torch
-from common import AGENTS, DEFAULT_GAMMA, RESULTS_DIR, make_env, make_agent, model_file
+from common import (AGENTS, DEFAULT_GAMMA, assert_separated_from_main_runs, default_run_dir,
+                    make_env, make_agent, model_file)
 
 
 def main():
@@ -25,7 +26,12 @@ def main():
     p.add_argument("--target_update", type=int, default=1000)
     p.add_argument("--learn_start", type=int, default=1000)
     p.add_argument("--hidden", type=int, default=128)
-    p.add_argument("--out", default=None, help="run directory (default results/runs/<agent>_s<size>_k<obs>_d<density>)")
+    p.add_argument("--obs_mode", choices=["window", "los"], default="window",
+                   help="window = historical local occupancy (default, published results); "
+                        "los = line-of-sight occlusion. los never writes under results/runs "
+                        "(default results/runs_los/<config>_los/seedN)")
+    p.add_argument("--out", default=None, help="run directory (default results/runs/<agent>_s<size>_k<obs>_d<density>; "
+                                               "los default is results/runs_los/..._los)")
     args = vars(p.parse_args())
     args["gamma"] = DEFAULT_GAMMA  # recorded in config.json; agent discount AND shaping gamma (not a CLI option)
     args["reward_version"] = "pbrs_v2"  # F = 0.1*(gamma*Phi(s') - Phi(s)), Phi = -d_BFS, Phi(terminal) = 0
@@ -38,7 +44,11 @@ def main():
 
 
 def run(cfg):
-    out = cfg["out"] or os.path.join(RESULTS_DIR, "runs", f"{cfg['agent']}_s{cfg['size']}_k{cfg['obs']}_d{cfg['density']}", f"seed{cfg['seed']}")
+    mode = cfg.get("obs_mode") or "window"
+    cfg["obs_mode"] = mode
+    out = cfg["out"] or default_run_dir(cfg)
+    if mode != "window":
+        assert_separated_from_main_runs(out)
     cfg["out"] = out
     os.makedirs(out, exist_ok=True)
     json.dump(cfg, open(os.path.join(out, "config.json"), "w"), indent=2)
@@ -50,7 +60,7 @@ def run(cfg):
     env.reset(seed=cfg["seed"])  # seeds env RNG; subsequent resets continue the training stream
     agent = make_agent(cfg, env.obs_dim)
     if hasattr(agent, "n_params"):
-        print(f"[{cfg['agent']}] k={cfg['obs']} trainable params: {agent.n_params():,}", flush=True)
+        print(f"[{cfg['agent']}] k={cfg['obs']} obs_mode={cfg['obs_mode']} trainable params: {agent.n_params():,}", flush=True)
     f = open(os.path.join(out, "train_log.csv"), "w", newline="")
     w = csv.writer(f)
     w.writerow(["episode", "reward", "steps", "success", "collision", "timeout", "epsilon", "loss", "success_ma100"])
@@ -78,10 +88,17 @@ def run(cfg):
                     int(oc == "timeout"), round(eps, 4), round(np.mean(losses), 5) if losses else "", round(ma, 3)])
         if (ep + 1) % max(1, cfg["episodes"] // 20) == 0:
             f.flush()
-            print(f"[{cfg['agent']}] ep {ep+1}/{cfg['episodes']} eps={eps:.2f} succ@100={ma:.2f} "
+            print(f"[{cfg['agent']}] ep {ep+1}/{cfg['episodes']} obs_mode={cfg['obs_mode']} eps={eps:.2f} succ@100={ma:.2f} "
                   f"steps={step} {time.time()-t0:.0f}s", flush=True)
     f.close()
-    agent.save(model_file(out, cfg["agent"]))
+    path = model_file(out, cfg["agent"])
+    # Deep checkpoints carry obs_mode next to the weights. Tabular/random keep their own formats.
+    if cfg["agent"] in ("dqn", "drqn"):
+        agent.save(path, metadata={"obs_mode": cfg["obs_mode"], "obs_dim": int(env.obs_dim),
+                                   "size": cfg["size"], "obs": cfg["obs"], "agent": cfg["agent"],
+                                   "reward_version": cfg.get("reward_version")})
+    else:
+        agent.save(path)
     print("saved to", out)
 
 

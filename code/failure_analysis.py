@@ -43,7 +43,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from envs.grid_env import ACTIONS, bfs_dist, corridor_score
-from common import RESULTS_DIR
+from common import RESULTS_DIR, refuse_protected_thesis_output
+from envs.grid_env import normalize_obs_mode
 
 LABELS = ["collision", "border_bump_stuck", "dead_end_stuck", "two_cell_osc", "long_cycle", "narrow_corridor",
           "u_trap", "dead_end_exited", "other_timeout"]
@@ -184,7 +185,17 @@ def main():
     p.add_argument("--density", default="0.2")
     p.add_argument("--eval_eps", default="0", help="analyse failures of the eps-greedy evaluation with this eps (0 = greedy)")
     p.add_argument("--render_per_config", type=int, default=4)
-    a = p.parse_args(); os.makedirs(a.out, exist_ok=True)
+    a = p.parse_args()
+    # Occlusion (and cross-mode) failure tables must not overwrite results/failures.
+    modes = set()
+    for ev_path in glob.glob(f"{a.runs}/*/seed*/eval_*.json"):
+        ev = json.load(open(ev_path))
+        if ev.get("exploratory_cross_mode"):
+            continue
+        modes.add(normalize_obs_mode(ev.get("obs_mode")))
+    if any(m != "window" for m in modes):
+        refuse_protected_thesis_output(a.out, "failures")
+    os.makedirs(a.out, exist_ok=True)
     suffix = "" if float(a.eval_eps) == 0 else f"_eps{float(a.eval_eps):g}"
     rows, rng = [], np.random.default_rng(0)
     for cdir in sorted(glob.glob(f"{a.runs}/*/")):
@@ -192,10 +203,16 @@ def main():
         if name.startswith("random"):
             continue
         lab_c, tag_c, n_eval, n_fail, n_per, n_to = Counter(), Counter(), 0, 0, 0, 0
+        config_nonwindow = False
         ctx_c = Counter()
         examples = defaultdict(list)
         for fpath in sorted(glob.glob(f"{cdir}/seed*/failures_d{a.density}{suffix}.json")):
             ev = json.load(open(fpath.replace("failures_", "eval_")))
+            if ev.get("exploratory_cross_mode"):
+                print("failure_analysis: skip exploratory cross-mode", fpath)
+                continue
+            if normalize_obs_mode(ev.get("obs_mode")) != "window":
+                config_nonwindow = True
             n_eval += ev["n_maps"]
             for f in json.load(open(fpath)):
                 lab = label_of(f)
@@ -208,6 +225,7 @@ def main():
             continue
         row = {"config": name, "eval_eps": float(a.eval_eps), "test_episodes": n_eval, "failures": n_fail,
                "failure_rate": round(n_fail / n_eval, 4)}
+        row["_nonwindow"] = config_nonwindow
         for k in LABELS:
             row[f"label_{k}"] = lab_c[k]
         for k in LABELS:
@@ -228,7 +246,15 @@ def main():
             seed, f = examples[c][rng.integers(len(examples[c]))]
             render(f, f"{name} {seed} map{f['map_seed']}\n{f['outcome']} label={c}\nold tags={','.join(sorted(old_tags(f)))}",
                    f"{a.out}/{name}_{seed}_map{f['map_seed']}_{c}.png")
+    if not rows:
+        raise SystemExit("no failure files to summarise (exploratory cross-mode files are skipped)")
     out = f"{a.out}/failure_summary{suffix}.csv"
+    # A window-only table keeps the historical columns. A los table records obs_mode on every row.
+    if rows and any(r.get("_nonwindow") for r in rows):
+        for r in rows:
+            r["obs_mode"] = "los" if r.get("_nonwindow") else "window"
+    for r in rows:
+        r.pop("_nonwindow", None)
     with open(out, "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0])); w.writeheader(); w.writerows(rows)
     for r in rows:

@@ -44,6 +44,7 @@ code/
 - 动作：0 上 / 1 下 / 2 左 / 3 右。
 - **状态** = k×k 局部窗口展平（障碍通道，越界视为障碍）+ k×k 目标通道（目标在视野内时为 1）+ 目标偏移 (行偏移, 列偏移)/(N−1)。向量长度 2k²+2。不含全局地图。
   - 注：除障碍外额外加了一个“目标是否在窗口内”的通道；若论文要求严格只用障碍窗口，可在 `_obs()` 中去掉（偏移量已能推出目标位置）。
+  - **可选** `--obs_mode los`：同一向量长度。地图内被挡住的格子记为 −1（不论真实空地或障碍），射线上第一面障碍仍为 1，越界仍为 1。目标通道只在目标格可见时为 1；偏移始终是真实偏移。默认 `window` 与上面这段逐格相同。规格、拐角/边界策略和“下表不是遮挡结果”见 `docs/los-occlusion.md`。
 - **奖励**（`RewardConfig`）：
   - 塑形（**严格势函数形式**，Ng, Harada & Russell 1999）：`F = 0.1 × (γ·Φ(s') − Φ(s))`，`Φ(s) = −d_BFS(s, goal)`，**γ = 0.99 与智能体折扣相同**（由 config 传入环境，`common.DEFAULT_GAMMA`）。BFS 用全局地图，**只用于计算奖励，不进入状态**。
     - 终止状态势函数取 0：到达目标时 d=0 本来就是 0；**撞障碍终止时也取 Φ(s')=0**（回合制任务中保证最优策略不变的标准做法），因此碰撞步的塑形项为 `+0.1·d_BFS(s)`，碰撞步总奖励约 `−10 + 0.1·d_BFS(s)`（10×10 上 d 很少超过 25，即约 −10 到 −7.5），远差于继续找路。
@@ -116,6 +117,8 @@ N=500 ./run_eval_all.sh     # 评估（贪心 ×3 密度 + ε=0.01/0.05）+ 汇�
 - 为透明起见仍输出 v1 的宽泛多标签（`oldtag_*`，可重叠）。
 
 ## 主要结果（10×10，密度 0.2，500 张固定测试图，5 种子，均值 ± 95% CI）
+
+> **这些成功率是无遮挡局部窗口（`obs_mode=window`），不是视线遮挡。** 可选遮挡模式 `obs_mode=los` 见 `docs/los-occlusion.md`。它不改默认观测，也不覆盖 `results/runs/` 与下表。下表不能当作遮挡实验的结论。
 | 配置 | 贪心成功率 | ε=0.01 成功率 | 简单 | 中等 | 困难（贪心） |
 |---|---|---|---|---|---|
 | DQN k5 | 0.689 ± 0.078 | 0.698 ± 0.068 | 0.797 ± 0.057 | 0.690 ± 0.085 | 0.502 ± 0.123 |
@@ -234,6 +237,18 @@ DQN 与 DRQN 的差距随绕行比增大而扩大（直走图 0.20，强绕行�
 - 注意事项：(1) 训练预算按**回合数**与 10×10 保持一致（10000 回合），大图回合更长，总交互步数约为 10×10 的 1.2–1.6 倍，但相对地图规模而言训练可能仍不充分，未做按步数对齐或更长训练的实验；(2) 难度分组仍用 10×10 的阈值（≤9 / 10–11 / ≥12），大图上多数测试图落入“困难”（N=15：109/84/307；N=20：71/49/380），分组结果仅在同一 N 内比较；(3) 只有 5 个种子；(4) 重新训练 vs 迁移的比较为探索性，未纳入主假设族。
 - 复现：`cd code && N=15 ./run_full.sh` 与 `N=20 ./run_full.sh`（模型 → `results/runs_trained/N15|N20/<config>/seed*/`，日志 → `results/logs/trained_N15|N20/`），然后 `./run_eval_trained.sh`（评估结果写到**新目录** `results/runs_trained_eval/N15|N20/<config>/seed*/`，每个种子目录有 `source.json` 指向被评估的模型；汇总 → `results/summary_trained_N15|N20.{csv,md}`、`significance_trained_N15|N20.csv`、`results/trained/N15|N20/`、`results/trained_vs_transfer.{csv,md}`）。**10×10 结果（`results/runs/<config>/`、`summary.csv`）与零样本迁移结果（`results/runs/N15|N20/`、`summary_N15|N20`）均不受影响。**
 
+## 可选视线遮挡（不替代上表）
+
+默认仍是无遮挡窗口。`los` 的训练写到 `results/runs_los/`（目录名带 `_los`），评估与汇总若含遮挡结果，必须用新的 `--out`，不能覆盖 `results/summary.csv`、`results/plots`、`results/failures`、`results/detour`。旧 `model.pt`（裸权重）只能按 `window` 加载。跨模式评估是探索性的，写到 `results/exploratory_cross_mode/`，不进入默认汇总。
+
+```bash
+cd code
+python3 render_los_figure.py --out ../docs/figures/los_window_vs_occlusion.png
+python3 train.py --agent drqn --size 10 --obs 5 --obs_mode los --episodes 10000 --seeds 0 1 2 3 4
+```
+
+示意图：`docs/figures/los_window_vs_occlusion.png`（全图、旧窗口、实际遮挡观测；移动前与向右两步之后）。完整假设、编码、拐角与边界策略、复现命令见 `docs/los-occlusion.md`。
+
 ## 可视化（Pygame）
 ```bash
 python3 visualize.py                                   # 默认加载 eval 成功率最高的 DRQN 5×5 种子
@@ -282,3 +297,9 @@ python3 visualize.py --record ../results/demo_drqn_5x5.gif --episodes 4 --need_s
 - `evaluate.py`：`--out` 也可在不带 `--size` 时使用（仅帮助文字修改，行为不变）。
 - `aggregate.py`：按训练尺寸分组，N≠10 时增加 `train_size` 列与说明；10×10 和零样本迁移的汇总文件重新生成后逐字节不变。
 - 新增测试 `test_agents.py::test_train_size_option_and_same_size_eval`（`--N 15` → config size 15、max_steps 120；同尺寸评估写到单独目录、不带 `eval_size`）；共 25 个测试通过。
+
+## 可选视线遮挡（默认行为不变）
+
+- `envs/grid_env.py`：`obs_mode=window`（默认）仍走原来的 `_obs_window`。`obs_mode=los` 用同一维度的向量：可见空地 0、可见障碍与越界 1、墙后未知 −1；保守拐角；目标偏移照旧；奖励 BFS 不进观测。规格见 `docs/los-occlusion.md`。
+- 训练 / 评估 / 可视化 / `config.json` 与新的 `model.pt` metadata 都带上模式。`los` 不写进 `results/runs/`。跨模式评估单独落盘并标成探索性。汇总默认拒绝把两种模式写进同一张表，也拒绝覆盖已发表的 `summary.csv`。
+- 示意图 `docs/figures/los_window_vs_occlusion.png`。单元测试 `tests/test_occlusion.py`。没有用遮挡模式重跑 20 个正式模型。
