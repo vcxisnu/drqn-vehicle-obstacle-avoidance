@@ -239,15 +239,17 @@ DQN 与 DRQN 的差距随绕行比增大而扩大（直走图 0.20，强绕行�
 
 ## 可选视线遮挡（不替代上表）
 
-默认仍是无遮挡窗口。`los` 的训练写到 `results/runs_los/`（目录名带 `_los`），评估与汇总若含遮挡结果，必须用新的 `--out`，不能覆盖 `results/summary.csv`、`results/plots`、`results/failures`、`results/detour`。旧 `model.pt`（裸权重）只能按 `window` 加载。跨模式评估是探索性的，写到 `results/exploratory_cross_mode/`，不进入默认汇总。
+上表仍是无遮挡窗口。`los` 的正式结果在本分支的 `results/summary_los.md`，没有写进 `results/summary.csv`，也没有改 `results/runs/`。旧 `model.pt` 只能按 `window` 加载。跨模式评估若要做，是探索性的，并且这次**没有做** window 对 los 的显著性检验。
+
+正式训练已完成：N=10，DQN k5 与 DRQN k3/k5/k7，种子 0–4，每个 10000 回合，协议与 `run_full.sh` 的 N=10 相同。20 个检查点都在 `results/runs_los/<config>_los/seed*/`，metadata 为 `obs_mode=los`。500 张与 window 相同的测试图（种子 `10_000_000+i`）上，贪心成功率（均值 ± 95% CI）：DQN k5 **0.629 ± 0.018**，DRQN k3 **0.873 ± 0.021**，DRQN k5 **0.889 ± 0.013**，DRQN k7 **0.857 ± 0.021**。los 内部主族：DRQN k5 高于 DQN k5（差 0.260，Holm p=1.1e-08）；k5 高于 k7（差 0.032，Holm p=0.029）；k3 与 k5、k3 与 k7 未检出差异。贪心碰撞率为 0。这些数字不能当成 window 实验的替代，也不能单独当成“遮挡显著更差”的检验结论。细节、ε=0.01、失败标签和局限见 `docs/los-occlusion.md`。
 
 ```bash
 cd code
-python3 render_los_figure.py --out ../docs/figures/los_window_vs_occlusion.png
-python3 train.py --agent drqn --size 10 --obs 5 --obs_mode los --episodes 10000 --seeds 0 1 2 3 4
+./run_full_los.sh
+./run_eval_los.sh
 ```
 
-示意图：`docs/figures/los_window_vs_occlusion.png`（全图、旧窗口、实际遮挡观测；移动前与向右两步之后）。完整假设、编码、拐角与边界策略、复现命令见 `docs/los-occlusion.md`。
+示意图：`docs/figures/los_window_vs_occlusion.png`。训练/测试图：`results/plots_los/`。动画：`results/plots_los/drqn_k5_seed0_los.gif`（DRQN k5 种子 0；第一段是测试图 10000000，评估为超时）。
 
 ## 可视化（Pygame）
 ```bash

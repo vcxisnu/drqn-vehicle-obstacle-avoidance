@@ -1,0 +1,49 @@
+{
+  "run": "/workspace/results/runs_los/dqn_s10_k5_d0.2_los/seed3",
+  "agent": "dqn",
+  "seed": 3,
+  "size": 10,
+  "obs": 5,
+  "train_density": 0.2,
+  "eval_density": 0.2,
+  "eval_eps": 0.0,
+  "n_maps": 500,
+  "difficulty_bins_shortest_path": [
+    9,
+    11
+  ],
+  "n": 500,
+  "success_rate": 0.636,
+  "collision_rate": 0.0,
+  "timeout_rate": 0.364,
+  "avg_steps_success": 9.89937106918239,
+  "avg_path_ratio_success": 1.030506303619511,
+  "by_difficulty": {
+    "easy": {
+      "n": 226,
+      "success_rate": 0.7389380530973452,
+      "collision_rate": 0.0,
+      "timeout_rate": 0.2610619469026549,
+      "avg_steps_success": 8.281437125748504,
+      "avg_path_ratio_success": 1.0302490257580077
+    },
+    "medium": {
+      "n": 142,
+      "success_rate": 0.6901408450704225,
+      "collision_rate": 0.0,
+      "timeout_rate": 0.30985915492957744,
+      "avg_steps_success": 10.775510204081632,
+      "avg_path_ratio_success": 1.0291280148423005
+    },
+    "hard": {
+      "n": 132,
+      "success_rate": 0.4015151515151515,
+      "collision_rate": 0.0,
+      "timeout_rate": 0.5984848484848485,
+      "avg_steps_success": 13.377358490566039,
+      "avg_path_ratio_success": 1.0338655055636186
+    }
+  },
+  "obs_mode": "los",
+  "train_obs_mode": "los"
+}

@@ -76,15 +76,9 @@ python3 -m pytest tests -q
 # 示意图（全图 / 旧窗口 / 实际遮挡观测，移动前与向右两步之后）
 python3 render_los_figure.py --out ../docs/figures/los_window_vs_occlusion.png
 
-# 正式遮挡训练不要写入 results/runs。默认目录是 results/runs_los。
-# 下面是与主实验相同的算法设置；回合数按论文应为 10000、种子 0–4。
-# 本仓库没有用这个命令重训，也不要把输出当成已发表结果。
-python3 train.py --agent dqn  --size 10 --obs 5 --density 0.2 --obs_mode los \
-    --episodes 10000 --seeds 0 1 2 3 4
-python3 train.py --agent drqn --size 10 --obs 5 --density 0.2 --obs_mode los \
-    --episodes 10000 --seeds 0 1 2 3 4
-python3 evaluate.py --run ../results/runs_los/drqn_s10_k5_d0.2_los --n_maps 500
-python3 aggregate.py --runs ../results/runs_los --out ../results/summary_los.csv
+# 正式 N=10 遮挡实验（已完成，见下一节）。不写 results/runs，不改 window 结果。
+./run_full_los.sh    # 4 配置 × 5 种子 × 10000 回合 → results/runs_los/
+./run_eval_los.sh    # 500 张固定图，贪心 + ε=0.01 → summary_los / plots_los / failures_los / detour_los
 
 # 把 window 检查点拿来看 los 观测：探索性，单独目录
 python3 evaluate.py --run ../results/runs/drqn_s10_k5_d0.2 --obs_mode los --n_maps 500
@@ -92,9 +86,55 @@ python3 evaluate.py --run ../results/runs/drqn_s10_k5_d0.2 --obs_mode los --n_ma
 
 不带 `--obs_mode`（或显式 `--obs_mode window`）时，训练、评估、作图的数值路径与改动前的 window 模式一致。
 
-## 这次实际跑过的短冒烟（不是有效性）
+## 正式 N=10 遮挡训练（已完成，20/20）
 
-只跑了管线，没有重训 20 个正式模型，也没有跑大地图。命令（在 `code/` 下，输出在 `results/occlusion_smoke/`，已被 gitignore，不进入论文结果）：
+这是补充实验，写在本分支，**没有合并进 main，也没有改写** `results/runs/`、`results/summary.csv` 和上表里的 window 数字。模型是在 `obs_mode=los` 下从头训练的，不是 window 检查点，也不是 50 回合冒烟模型。
+
+协议与 `run_full.sh` 的 N=10 相同，并逐项核对过 20 个 `config.json`、`train_log.csv`（各 10000 行，最后一回合编号 9999）和 `model.pt` metadata：
+
+- 配置：DQN k=5，DRQN k=3/5/7；种子 0–4。共 20 个模型。
+- 每个模型 10000 回合；密度 0.2；`min_dist` 空（环境默认曼哈顿距离 ≥7）；`max_steps` 空（默认 8N=80）。
+- γ=0.99，奖励 `pbrs_v2`，ε 从 1.0 线性降到 0.01（前 60% 回合），lr 5e-4，batch 32，DRQN `seq_len=16`、`burn_in=8`，`train_every=4`，`target_update=1000`，`learn_start=1000`，hidden 128。
+- 网络尺寸与 window 相同（k=5：DQN 155,901，DRQN 155,908）。输入维度仍是 `2k²+2`。
+- 检查点格式 `drqn_ckpt_v1`，`metadata.obs_mode=los`。路径：`results/runs_los/<agent>_s10_k<k>_d0.2_los/seed<s>/model.pt`。
+
+评估：每个模型在同一批 500 张图上评估，种子 `10_000_000+i`。已与仓库里 window 模式 DQN k5 seed0 的 `episodes_d0.2.csv` 逐图核对 `map_seed` 与最短路，500 张完全一致。难度仍是最短路 ≤9 / 10–11 / ≥12，本测试集为 226 / 142 / 132。贪心（ε=0）和 ε=0.01 各一份。汇总只用 `results/runs_los`，主假设族仍是 4 个配置间比较 × 贪心 × overall，Holm 只在这个族内做。**没有做 window 对 los 的显著性检验。**
+
+贪心与 ε=0.01，5 个种子均值 ± 95% CI（Student t）。完整表：`results/summary_los.md`。显著性：`results/significance_los.csv`。
+
+| 配置 | los 贪心 | los ε=0.01 | window 贪心（已发表，仅对照） | window ε=0.01（仅对照） |
+|---|---|---|---|---|
+| DQN k5 | 0.629 ± 0.018 | 0.645 ± 0.016 | 0.689 ± 0.078 | 0.698 ± 0.068 |
+| DRQN k3 | 0.873 ± 0.021 | 0.862 ± 0.021 | 0.875 ± 0.019 | 0.863 ± 0.021 |
+| DRQN k5 | 0.889 ± 0.013 | 0.878 ± 0.017 | 0.926 ± 0.014 | 0.914 ± 0.021 |
+| DRQN k7 | 0.857 ± 0.021 | 0.850 ± 0.016 | 0.916 ± 0.014 | 0.907 ± 0.016 |
+
+los 贪心的简单 / 中等 / 困难：DQN k5 为 0.765 ± 0.043 / 0.639 ± 0.044 / 0.386 ± 0.046；DRQN k3 为 0.960 ± 0.016 / 0.892 ± 0.031 / 0.705 ± 0.047；DRQN k5 为 0.965 ± 0.020 / 0.920 ± 0.008 / 0.726 ± 0.054；DRQN k7 为 0.942 ± 0.022 / 0.876 ± 0.010 / 0.691 ± 0.059。贪心碰撞率四个配置都是 0.000；失败全是超时（超时率 DQN 0.371 ± 0.018，DRQN k3/k5/k7 为 0.127 / 0.111 / 0.143）。
+
+**los 内部主假设族（贪心，overall，Holm）**，差值是 A−B：
+
+| 比较 | A−B | Holm p | bootstrap 95% CI | 结论 |
+|---|---|---|---|---|
+| DQN k5 − DRQN k5 | −0.260 | 1.1e-08 | [−0.292, −0.226] | 显著（DRQN 更高） |
+| DRQN k3 − k5 | −0.016 | 0.25 | [−0.041, +0.010] | 未检出差异 |
+| DRQN k5 − k7 | +0.032 | 0.029 | [+0.007, +0.057] | 显著（k5 更高） |
+| DRQN k3 − k7 | +0.016 | 0.25 | [−0.011, +0.044] | 未检出差异 |
+
+ε=0.01 下 DQN k5 − DRQN k5 = −0.233，bootstrap CI [−0.265, −0.199]，这是探索性结果，不在 Holm 族里。同一批模型上，ε=0.01 相对贪心：DQN +0.016（探索性，CI 不含 0），DRQN k3 和 k5 各约 −0.011（探索性，CI 不含 0），k7 为 −0.007（未检出差异）。随机动作带来的碰撞率约 0.036–0.055。
+
+失败标签（贪心，2500 次评估 = 5 种子 × 500 图；`results/failures_los/failure_summary.csv`）：DQN 失败 927 次，其中 91.6% 是两格来回，超时尾段 100% 严格周期。DRQN k3/k5/k7 失败 317 / 278 / 357 次，两格来回占 31.9% / 36.7% / 37.3%，长周期占 59.3% / 55.0% / 56.0%，超时尾段严格周期 75.1% / 79.9% / 81.5%。贪心下没有碰撞标签。
+
+绕行比（贪心，`results/detour_los/detour_by_config.md`）：DQN 在直走图（n=363）0.739 ± 0.019，在 >1.5（n=22）降到 0.036 ± 0.047；DRQN k5 对应为 0.954 ± 0.011 和 0.309 ± 0.084。>1.5 只有 22 张图，区间宽。
+
+图：`results/plots_los/exp1_dqn_vs_drqn.png`、`exp2_obs_size.png`、`eval_eps.png`、`exp1_training_curves.png`。`density.png` 只有训练密度 0.2，没有密度扫描。动画：`results/plots_los/drqn_k5_seed0_los.gif`，DRQN k5 种子 0，第一段就是测试图 `10000000`（评估记录为超时、80 步、最短路 13），其后两段来自同一随机数发生器的后续地图，没有为了成功去挑。三段结果是超时、成功、成功。
+
+**局限（照实写）**：只做了 N=10、这一种遮挡编码和拐角规则、5 个种子。没有 N=15/20，没有新基线，没有调参。window 数字只放在旁边作对照，**不能**把“los 低于 window 的点估计”说成已经检验过的跨模式差异；两者的置信区间对 DQN 重叠很多，对 DRQN k5 点估计间隔开，但这不是一次跨模式检验。los 里 k5 高于 k7 约 3 个百分点，主族里算显著，差别不大。训练末 100 回合成功率（种子 0：DQN 0.78，DRQN k5 0.93）高于冻结模型的贪心测试，和 window 实验里“在线更新更高”的现象同类，不能把训练曲线当成测试成功率。
+
+## 这次实际跑过的短冒烟（不是上面的正式结果）
+
+正式 20 个模型完成之前，只跑过下面这条管线检查。它**不是**上一节的结果。输出在 `results/occlusion_smoke/`（gitignore）。
+
+命令（在 `code/` 下）：
 
 ```bash
 python3 train.py --agent dqn  --size 10 --obs 5 --density 0.2 --obs_mode los --episodes 50 --seeds 0 \
